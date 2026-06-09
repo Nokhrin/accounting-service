@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Bank API
+  version: 0.0.1
+  description: REST API для управления банковскими счетами
+  contact:
+    name: Alexander Nokhrin
+    email: a.v.nokhrin@yandex.ru
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8080
+paths: { }
+components: { }
