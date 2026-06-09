@@ -1,0 +1,36 @@
+jenkins:
+  systemMessage: "bank-api CI/CD (JCasC)"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+tool:
+  jdk:
+    installations:
+      - name: "JDK25"
+        home: "/opt/java/openjdk"
+
+jobs:
+  - script: |
+      pipelineJob('bank-api-pipeline') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/Nokhrin/bank-api.git')
+                }
+                branch('*/dev')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+      }

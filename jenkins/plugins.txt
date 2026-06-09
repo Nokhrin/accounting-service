@@ -1,0 +1,4 @@
+git:5.10.1
+workflow-aggregator:608.v67378e9d3db_1
+allure-jenkins-plugin:2.35.2
+configuration-as-code:2082.vdb_db_4622e9fa_
