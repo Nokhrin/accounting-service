@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'dev', url: 'https://github.com/Nokhrin/bank-api.git'
+                git branch: 'dev', url: 'https://github.com/Nokhrin/accounting-service.git'
             }
         }
         
@@ -46,7 +46,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    docker.build('bank-api:${env.BUILD_ID}')
+                    docker.build('accounting-service:${env.BUILD_ID}')
                 }
             }
         }

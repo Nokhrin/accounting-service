@@ -1,5 +1,5 @@
 jenkins:
-  systemMessage: "bank-api CI/CD (JCasC)"
+  systemMessage: "accounting-service CI/CD (JCasC)"
   numExecutors: 2
   securityRealm:
     local:
@@ -19,13 +19,13 @@ tool:
 
 jobs:
   - script: |
-      pipelineJob('bank-api-pipeline') {
+      pipelineJob('accounting-service-pipeline') {
         definition {
           cpsScm {
             scm {
               git {
                 remote {
-                  url('https://github.com/Nokhrin/bank-api.git')
+                  url('https://github.com/Nokhrin/accounting-service.git')
                 }
                 branch('*/dev')
               }

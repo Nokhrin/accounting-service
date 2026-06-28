@@ -1,6 +1,4 @@
-package com.nokhrin.bank.operations;
-
-import java.util.UUID;
+package com.nokhrin.accounting.operations;
 
 public sealed interface Operation permits Deposit, Withdraw, Transfer {
 }

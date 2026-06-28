@@ -1,6 +1,6 @@
 spring:
   application:
-    name: bank-api
+    name: accounting-service
   datasource:
     url: jdbc:postgresql://localhost:5432/bankdb
     username: bank

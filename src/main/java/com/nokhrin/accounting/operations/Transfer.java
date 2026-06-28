@@ -1,10 +1,11 @@
-package com.nokhrin.bank.operations;
+package com.nokhrin.accounting.operations;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public record Withdraw(
+public record Transfer(
         UUID sourceId,
+        UUID targetId,
         BigDecimal amount
 ) implements Operation {
 }

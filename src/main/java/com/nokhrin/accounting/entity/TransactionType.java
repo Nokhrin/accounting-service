@@ -1,4 +1,4 @@
-package com.nokhrin.bank.entity;
+package com.nokhrin.accounting.entity;
 
 public enum TransactionType {
     DEPOSIT,

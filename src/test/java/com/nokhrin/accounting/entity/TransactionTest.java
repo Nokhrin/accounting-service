@@ -1,18 +1,18 @@
-package com.nokhrin.bank.entity;
+package com.nokhrin.accounting.entity;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-public class TransactionTest {
+class TransactionTest {
 
     @Test
-    public void testTransactionCreatedSuccess() {
+    void transaction_allFieldsMatch_expectedValues() {
         TransactionType type = TransactionType.DEPOSIT;
         BigDecimal amount = new BigDecimal("1500.00");
         UUID targetAccountId = UUID.randomUUID();
@@ -24,19 +24,18 @@ public class TransactionTest {
                 expectedId,
                 type,
                 amount,
-                null, // sourceAccountId
+                null,
                 targetAccountId,
                 execTs,
                 status
         );
 
-        assertEquals(transaction.transactionId(), expectedId);
-        assertEquals(transaction.transactionType(), type);
-        assertEquals(transaction.amount(), amount);
+        assertEquals(expectedId, transaction.id());
+        assertEquals(type, transaction.type());
+        assertEquals(amount, transaction.amount());
         assertNull(transaction.sourceAccountId());
-        assertEquals(transaction.targetAccountId(), targetAccountId);
-        assertEquals(transaction.execTs(), execTs);
-        assertEquals(transaction.transactionStatus(), status);
+        assertEquals(targetAccountId, transaction.targetAccountId());
+        assertEquals(execTs, transaction.executionTimestamp());
+        assertEquals(status, transaction.status());
     }
-
 }

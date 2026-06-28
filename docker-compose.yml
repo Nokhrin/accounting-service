@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: bank-db
+    container_name: accounting-db
     environment:
       POSTGRES_DB: bankdb
       POSTGRES_USER: bank
@@ -9,18 +9,18 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - accounting_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bank -d bankdb"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - bank_network
+      - accounting_network
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: bank-pgadmin
+    container_name: accounting-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@bank.local
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -31,13 +31,13 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - bank_network
+      - accounting_network
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bank-api
+    container_name: accounting-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bankdb
       SPRING_DATASOURCE_USERNAME: bank
@@ -48,29 +48,29 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - bank_network
+      - accounting_network
 
   jenkins:
     build:
       context: ./jenkins
       dockerfile: Dockerfile
-    container_name: bank-jenkins
+    container_name: accounting-jenkins
     user: root
     ports:
       - "8081:8080"
       - "50000:50000"
     volumes:
-      - jenkins_home:/var/jenkins_home
+      - accounting_jenkins_home:/var/accounting_jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     networks:
-      - bank_network
+      - accounting_network
 
 volumes:
-  postgres_data:
-  jenkins_home:
+  accounting_postgres_data:
+  accounting_jenkins_home:
 
 networks:
-  bank_network:
+  accounting_network:
     driver: bridge

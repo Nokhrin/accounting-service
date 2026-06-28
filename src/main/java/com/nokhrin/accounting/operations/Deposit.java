@@ -1,4 +1,4 @@
-package com.nokhrin.bank.operations;
+package com.nokhrin.accounting.operations;
 
 import java.math.BigDecimal;
 import java.util.UUID;
