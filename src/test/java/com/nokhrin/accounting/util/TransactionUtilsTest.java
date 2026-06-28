@@ -9,11 +9,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
+import java.text.CollationElementIterator;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +41,7 @@ class TransactionUtilsTest {
                 arguments(transactions, TransactionType.WITHDRAWAL, 1),
                 arguments(transactions, TransactionType.TRANSFER, 1),
                 arguments(transactions, null, 0),
-                arguments((List<Transaction>) null, TransactionType.DEPOSIT, 0),
+                arguments(null, TransactionType.DEPOSIT, 0),
                 arguments(List.of(), TransactionType.DEPOSIT, 0)
         );
     }
@@ -65,7 +64,7 @@ class TransactionUtilsTest {
                 arguments(transactions, day2, day3, 2),
                 arguments(transactions, day1, day2, 2),
                 arguments(transactions, day2, day2, 1),
-                arguments((List<Transaction>) null, day1, day3, 0),
+                arguments(null, day1, day3, 0),
                 arguments(transactions, null, day3, 0)
         );
     }
@@ -85,9 +84,27 @@ class TransactionUtilsTest {
                 arguments(transactions, TransactionType.DEPOSIT, new BigDecimal("450")),
                 arguments(transactions, TransactionType.WITHDRAWAL, new BigDecimal("50")),
                 arguments(transactions, TransactionType.TRANSFER, BigDecimal.ZERO),
-                arguments((List<Transaction>) null, TransactionType.DEPOSIT, BigDecimal.ZERO),
+                arguments(null, TransactionType.DEPOSIT, BigDecimal.ZERO),
                 arguments(transactions, null, BigDecimal.ZERO),
                 arguments(List.of(), TransactionType.DEPOSIT, BigDecimal.ZERO)
+        );
+    }
+
+    static Stream<Arguments> provideHasTypeData(){
+        UUID accountId = UUID.randomUUID();
+        Instant now = Instant.now();
+        List<Transaction> transactions = List.of(
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("100"), null, accountId, now),
+                createTransaction(TransactionType.WITHDRAWAL, new BigDecimal("50"), accountId, null, now),
+                createTransaction(TransactionType.TRANSFER, new BigDecimal("50"), accountId, UUID.randomUUID(), now)
+        );
+        return Stream.of(
+                arguments(transactions, TransactionType.DEPOSIT, true),
+                arguments(transactions, TransactionType.WITHDRAWAL, true),
+                arguments(transactions, TransactionType.TRANSFER, true),
+                arguments(transactions, null, false),
+                arguments(List.of(), TransactionType.DEPOSIT, false),
+                arguments(null, TransactionType.DEPOSIT, false)
         );
     }
 
@@ -157,9 +174,70 @@ class TransactionUtilsTest {
         assertEquals(expectedSum, result);
     }
 
+    @ParameterizedTest
+    @MethodSource("provideHasTypeData")
+    public void hasType_collection_containsType_expectedResult(
+            Collection<Transaction> transactions,
+            TransactionType type,
+            boolean expected
+    ){
+        assertEquals(expected, TransactionUtils.hasType(transactions, type));
+    }
+
+    @Test
+    void findEarliest_collection_returnsOldestTransaction() {
+        UUID account = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        List<Transaction> transactions = List.of(
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("100"), null, account, now.minus(2, ChronoUnit.DAYS)),
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("200"), null, account, now.minus(1, ChronoUnit.DAYS)),
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("300"), null, account, now)
+        );
+
+        Optional<Transaction> result = TransactionUtils.findEarliest(transactions);
+
+        assertTrue(result.isPresent());
+        assertEquals(now.minus(2, ChronoUnit.DAYS), result.get().executionTimestamp());
+    }
+
+    @Test
+    void findLatest_collection_returnsNewestTransaction() {
+        UUID account = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        List<Transaction> transactions = List.of(
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("100"), null, account, now.minus(2, ChronoUnit.DAYS)),
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("200"), null, account, now.minus(1, ChronoUnit.DAYS)),
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("300"), null, account, now)
+        );
+
+        Optional<Transaction> result = TransactionUtils.findLatest(transactions);
+
+        assertTrue(result.isPresent());
+        assertEquals(now, result.get().executionTimestamp());
+    }
+
+    @Test
+    void findMaxByAmount_collection_returnsFirstEncountered() {
+        UUID account = UUID.randomUUID();
+        Instant now = Instant.now();
+        BigDecimal expected = new BigDecimal("300");
+
+        List<Transaction> transactions = List.of(
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("100"), null, account, now),
+                createTransaction(TransactionType.DEPOSIT, new BigDecimal("200"), null, account, now),
+                createTransaction(TransactionType.DEPOSIT, expected, null, account, now)
+        );
+
+        Optional<Transaction> result = TransactionUtils.findMaxByAmount(transactions);
+
+        assertTrue(result.isPresent());
+        assertEquals(expected, result.get().amount());
+    }
     //endregion
 
-    //region Helper methods
+    //region Helpers
 
     private static Transaction createTransaction(
             TransactionType type,

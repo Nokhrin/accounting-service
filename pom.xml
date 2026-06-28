@@ -10,6 +10,7 @@
     <artifactId>accounting-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <properties>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <java.version>25</java.version>
         <jjwt.version>0.13.0</jjwt.version>
         <testcontainers.version>2.0.5</testcontainers.version>
@@ -130,7 +131,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.12</version>
+                <version>${jacoco-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals><goal>prepare-agent</goal></goals>
@@ -170,8 +171,8 @@
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/resources/openapi.yaml</inputSpec>
                             <generatorName>spring</generatorName>
-                            <apiPackage>com.nokhrin.bank.api</apiPackage>
-                            <modelPackage>com.nokhrin.bank.api.model</modelPackage>
+                            <apiPackage>com.nokhrin.accounting.api</apiPackage>
+                            <modelPackage>com.nokhrin.accounting.api.model</modelPackage>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
                                 <useSpringBoot3>true</useSpringBoot3>

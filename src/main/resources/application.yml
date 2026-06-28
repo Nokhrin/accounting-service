@@ -2,9 +2,9 @@ spring:
   application:
     name: accounting-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/bankdb
-    username: bank
-    password: bank
+    url: jdbc:postgresql://localhost:5432/accountingdb
+    username: accounting
+    password: accounting
   jpa:
     hibernate:
       ddl-auto: validate

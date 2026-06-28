@@ -3,6 +3,11 @@ REST API для управления банковскими счетами
 Стек: Java 25, Spring Boot 4.0.0, PostgreSQL 17
 
 ---
+### Тестирование
+```shell
+mvn clean test -Dtest=TransactionUtilsTest
+```
+
 
 ### Управление сервисами при разработке
 
@@ -44,7 +49,7 @@ ls -l Jenkinsfile jenkins/init.groovy.d/basic-security.groovy
 docker compose up -d postgres pgadmin
 docker compose ps postgres pgadmin
 # Ожидаемый результат: STATUS содержит "healthy" для postgres и "running" для pgadmin
-docker compose exec postgres pg_isready -U bank -d bankdb
+docker compose exec postgres pg_isready -U accounting -d accountingdb
 # Ожидаемый результат: /var/run/postgresql:5432 - accepting connections
 ```
 
@@ -84,7 +89,7 @@ docker compose ps
 docker compose down
 docker compose ps
 # Ожидаемый результат: пустой список
-docker ps -a --filter "name=bank-"
+docker ps -a --filter "name=accounting-"
 # Ожидаемый результат: пустой список
 
 sudo ss -tlnp | grep -E ":(8080|8081|5050|5432)"

@@ -5,10 +5,7 @@ import com.nokhrin.accounting.entity.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class TransactionUtils {
@@ -64,5 +61,29 @@ public class TransactionUtils {
                 .filter(transaction -> transaction.type() == type)
                 .map(Transaction::amount)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
+    }
+
+    public static boolean hasType(Collection<Transaction> transactions, TransactionType type){
+        if (transactions == null || type == null) return false;
+        return transactions.stream()
+                .anyMatch(transaction -> transaction.type() == type);
+    }
+
+    public static Optional<Transaction> findEarliest(Collection<Transaction> transactions){
+        if (transactions == null || transactions.isEmpty()) return Optional.empty();
+        return transactions.stream()
+                .min(Comparator.comparing(Transaction::executionTimestamp));
+    }
+
+    public static Optional<Transaction> findLatest(Collection<Transaction> transactions){
+        if (transactions == null || transactions.isEmpty()) return Optional.empty();
+        return transactions.stream()
+                .max(Comparator.comparing(Transaction::executionTimestamp));
+    }
+
+    public static Optional<Transaction> findMaxByAmount(Collection<Transaction> transactions){
+        if (transactions == null || transactions.isEmpty()) return Optional.empty();
+        return transactions.stream()
+                .max(Comparator.comparing(Transaction::amount));
     }
 }
