@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: Bank API
-  version: 0.0.1
+  title: Accounting Service API
+  version: 0.1.0
   description: REST API для управления банковскими счетами
   contact:
     name: Alexander Nokhrin
@@ -9,7 +9,80 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
+
 servers:
   - url: http://localhost:8080
-paths: { }
-components: { }
+    description: Local development
+
+paths:
+  /accounts:
+    post:
+      summary: Открытие нового счета
+      description: Создание нового банковского счета с начальным балансом
+      operationId: createAccount
+      tags:
+        - Accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Счет успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Ошибка валидации запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CreateAccountRequest:
+      type: object
+      required:
+        - initialBalance
+      properties:
+        initialBalance:
+          type: number
+          format: decimal
+          minimum: 0
+          description: Начальный баланс счета
+          example: 1000.00
+
+    AccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор счета
+        balance:
+          type: number
+          format: decimal
+          description: Текущий баланс
+        status:
+          type: string
+          enum: [ACTIVE, FROZEN, CLOSED]
+          description: Статус счета
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата и время создания счета
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Описание ошибки
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки

@@ -29,7 +29,7 @@ public record Transaction(
         @Column(nullable = false)
         Instant executionTimestamp,
 
-        @Enumerated
+        @Enumerated(EnumType.STRING)
         @Column(nullable = false)
         TransactionStatus status
 ) {
