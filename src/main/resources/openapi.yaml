@@ -41,6 +41,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /accounts/{id}/deposit:
+    post:
+      summary: Пополнение счета
+      operationId: deposit
+      tags:
+        - Accounts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositRequest'
+      responses:
+        '200':
+          description: Счет пополнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Ошибка валидации или неактивный счет
+        '404':
+          description: Счет не найден
 
 components:
   schemas:
@@ -69,7 +99,7 @@ components:
           description: Текущий баланс
         status:
           type: string
-          enum: [ACTIVE, FROZEN, CLOSED]
+          enum: [ACTIVE, BLOCKED, CLOSED]
           description: Статус счета
         createdAt:
           type: string
@@ -86,3 +116,26 @@ components:
           type: string
           format: date-time
           description: Время возникновения ошибки
+
+    DepositRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.01
+
+    OperationResponse:
+      type: object
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        newBalance:
+          type: number
+        status:
+          type: string
