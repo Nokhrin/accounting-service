@@ -6,9 +6,11 @@
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.0</version>
     </parent>
+
     <groupId>com.nokhrin</groupId>
     <artifactId>accounting-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+
     <properties>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <java.version>25</java.version>
@@ -19,7 +21,9 @@
         <openapi-generator.version>7.22.0</openapi-generator.version>
         <springdoc.version>3.0.3</springdoc.version>
         <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
+        <jqwik.version>1.10.1</jqwik.version>
     </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -119,6 +123,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>${jqwik.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

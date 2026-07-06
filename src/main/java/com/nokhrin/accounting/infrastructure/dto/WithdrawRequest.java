@@ -2,5 +2,5 @@ package com.nokhrin.accounting.infrastructure.dto;
 
 import java.math.BigDecimal;
 
-public record DepositRequest(BigDecimal amount) {
+public record WithdrawRequest(BigDecimal amount) {
 }

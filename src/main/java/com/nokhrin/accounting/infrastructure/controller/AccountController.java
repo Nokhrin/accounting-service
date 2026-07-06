@@ -1,11 +1,11 @@
 package com.nokhrin.accounting.infrastructure.controller;
 
+import com.nokhrin.accounting.domain.operation.Deposit;
 import com.nokhrin.accounting.domain.shared.Actor;
 import com.nokhrin.accounting.domain.shared.CustomerActor;
 import com.nokhrin.accounting.infrastructure.dto.*;
 import com.nokhrin.accounting.infrastructure.service.AccountService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,8 +40,6 @@ public class AccountController {
             @Valid @RequestBody DepositRequest request,
             Principal principal
             ) {
-        Actor actor = new CustomerActor(principal.getName());
-        OperationResponse response= accountService.deposit(id, request,actor);
-        return ResponseEntity.ok(response);
+        return null;
     }
 }
