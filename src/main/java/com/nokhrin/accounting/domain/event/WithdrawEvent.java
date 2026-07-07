@@ -1,6 +1,6 @@
 package com.nokhrin.accounting.domain.event;
 
-import com.nokhrin.accounting.domain.shared.Actor;
+import com.nokhrin.accounting.domain.operation.Initiator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -13,6 +13,6 @@ public record WithdrawEvent(
         BigDecimal balanceBefore,
         BigDecimal balanceAfter,
         Instant eventTs,
-        Actor actor
+        Initiator initiator
 ) implements Event {
 }

@@ -8,6 +8,7 @@ public interface AccountMapper {
                 accountJpaEntity.getId(),
                 accountJpaEntity.getBalance(),
                 accountJpaEntity.getStatus(),
+                accountJpaEntity.getHolder(),
                 accountJpaEntity.getCreatedAt(),
                 accountJpaEntity.getModifiedAt()
         );

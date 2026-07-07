@@ -1,6 +1,6 @@
 package com.nokhrin.accounting.domain.event;
 
-import com.nokhrin.accounting.domain.shared.Actor;
+import com.nokhrin.accounting.domain.operation.Initiator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,6 +11,6 @@ public record AccountCreatedEvent(
         UUID accountId,
         BigDecimal balance,
         Instant ts,
-        Actor actor
+        Initiator initiator
 ) implements Event {
 }

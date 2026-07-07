@@ -1,5 +1,6 @@
 package com.nokhrin.accounting.infrastructure.dto;
 
+import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountStatus;
 
 import java.math.BigDecimal;
@@ -12,4 +13,12 @@ public record AccountResponse(
         AccountStatus status,
         Instant createdAt
 ) {
+    public static AccountResponse from(Account account){
+        return new AccountResponse(
+                account.id(),
+                account.balance(),
+                account.status(),
+                account.createdAt()
+        );
+    }
 }

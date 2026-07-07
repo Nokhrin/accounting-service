@@ -10,9 +10,9 @@ import java.util.UUID;
 public record Deposit(
         Account targetAccount,
         BigDecimal amount
-) implements Operation {
+) implements Operation<SingleOperationResult> {
 
-    public OperationResult execute() {
+    public SingleOperationResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -23,6 +23,7 @@ public record Deposit(
                 targetAccount.id(),
                 targetAccount.balance().add(amount),
                 targetAccount.status(),
+                targetAccount.holder(),
                 targetAccount.createdAt(),
                 Instant.now()
         );

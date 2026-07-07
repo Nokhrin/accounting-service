@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public record WithdrawRequest(
+public record TransferRequest(
         @NotNull
         @DecimalMin(value = "0.01")
         BigDecimal amount

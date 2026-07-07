@@ -1,5 +1,6 @@
 package com.nokhrin.accounting.infrastructure.persistence;
 
+import com.nokhrin.accounting.domain.account.AccountHolder;
 import com.nokhrin.accounting.domain.account.AccountStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -20,6 +21,17 @@ public class AccountJpaEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private AccountStatus status;
+
+    public AccountHolder getHolder() {
+        return holder;
+    }
+
+    public void setHolder(AccountHolder holder) {
+        this.holder = holder;
+    }
+
+    @Column(name = "holder", nullable = false)
+    private AccountHolder holder;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

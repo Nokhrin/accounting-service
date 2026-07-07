@@ -8,6 +8,7 @@ public record Account(
         UUID id,
         BigDecimal balance,
         AccountStatus status,
+        AccountHolder holder,
         Instant createdAt,
         Instant modifiedAt
 ) {
@@ -25,12 +26,13 @@ public record Account(
         }
     }
 
-    public static Account create(BigDecimal initialBalance) {
+    public static Account create(BigDecimal initialBalance, AccountHolder holder) {
         Instant creationTs = Instant.now();
         return new Account(
                 UUID.randomUUID(),
                 initialBalance,
                 AccountStatus.ACTIVE,
+                holder,
                 creationTs,
                 creationTs
         );
@@ -40,14 +42,14 @@ public record Account(
         if (status == AccountStatus.BLOCKED) {
             throw new IllegalStateException("Account " + id + " is already blocked");
         }
-        return new Account(id, balance, AccountStatus.BLOCKED, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.BLOCKED, holder, createdAt, Instant.now());
     }
 
     public Account activate() {
         if (status != AccountStatus.BLOCKED) {
             throw new IllegalStateException("Can only activate blocked account. Current status: " + status);
         }
-        return new Account(id, balance, AccountStatus.ACTIVE, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.ACTIVE, holder, createdAt, Instant.now());
     }
 
     public Account close() {
@@ -60,7 +62,7 @@ public record Account(
         if (balance.compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalStateException("Cannot close account with non-zero balance: " + balance);
         }
-        return new Account(id, balance, AccountStatus.CLOSED, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.CLOSED, holder, createdAt, Instant.now());
     }
 
     public boolean isActive() {

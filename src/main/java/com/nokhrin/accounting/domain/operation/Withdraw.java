@@ -10,9 +10,9 @@ import java.util.UUID;
 public record Withdraw(
         Account sourceAccount,
         BigDecimal amount
-) implements Operation {
+) implements Operation<SingleOperationResult> {
 
-    public OperationResult execute() {
+    public SingleOperationResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -26,6 +26,7 @@ public record Withdraw(
                 sourceAccount.id(),
                 sourceAccount.balance().subtract(amount),
                 sourceAccount.status(),
+                sourceAccount.holder(),
                 sourceAccount.createdAt(),
                 Instant.now()
         );

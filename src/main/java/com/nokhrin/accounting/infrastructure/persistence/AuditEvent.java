@@ -53,7 +53,7 @@ public class AuditEvent {
         auditEvent.amount=event.amount();
         auditEvent.balanceBefore=event.balanceBefore();
         auditEvent.balanceAfter=event.balanceAfter();
-        auditEvent.actorId=event.actor().id();
+        auditEvent.actorId=event.initiator().id();
         auditEvent.occurredAt=event.eventTs();
 
         return auditEvent;

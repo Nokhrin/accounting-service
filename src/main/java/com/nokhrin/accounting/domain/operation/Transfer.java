@@ -11,9 +11,9 @@ public record Transfer(
         Account sourceAccount,
         Account targetAccount,
         BigDecimal amount
-) implements Operation {
+) implements Operation<TransferOperationResult> {
 
-    public OperationResult execute() {
+    public TransferOperationResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -33,6 +33,7 @@ public record Transfer(
                 sourceAccount.id(),
                 sourceAccount.balance().subtract(amount),
                 sourceAccount.status(),
+                sourceAccount.holder(),
                 sourceAccount.createdAt(),
                 transferTs
         );
@@ -41,6 +42,7 @@ public record Transfer(
                 targetAccount.id(),
                 targetAccount.balance().add(amount),
                 targetAccount.status(),
+                targetAccount.holder(),
                 targetAccount.createdAt(),
                 transferTs
         );
