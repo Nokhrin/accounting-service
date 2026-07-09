@@ -7,12 +7,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-public record Withdraw(
+public record Withdrawal(
         Account sourceAccount,
         BigDecimal amount
-) implements Operation<SingleOperationResult> {
+) implements Operation<WithdrawalResult> {
 
-    public SingleOperationResult execute() {
+    public WithdrawalResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -31,7 +31,7 @@ public record Withdraw(
                 Instant.now()
         );
 
-        return new SingleOperationResult(
+        return new WithdrawalResult(
                 UUID.randomUUID(),
                 sourceAccountAfter
         );

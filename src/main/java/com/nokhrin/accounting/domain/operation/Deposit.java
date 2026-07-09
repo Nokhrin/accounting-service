@@ -10,9 +10,9 @@ import java.util.UUID;
 public record Deposit(
         Account targetAccount,
         BigDecimal amount
-) implements Operation<SingleOperationResult> {
+) implements Operation<DepositResult> {
 
-    public SingleOperationResult execute() {
+    public DepositResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -28,7 +28,7 @@ public record Deposit(
                 Instant.now()
         );
 
-        return new SingleOperationResult(
+        return new DepositResult(
                 UUID.randomUUID(),
                 targetAccountAfter
         );

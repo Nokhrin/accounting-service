@@ -1,6 +1,9 @@
 package com.nokhrin.accounting.domain.account;
 
+import java.util.UUID;
+
 public record AccountHolder(
-        String id
+        UUID id,
+        String displayName
 ) {
 }

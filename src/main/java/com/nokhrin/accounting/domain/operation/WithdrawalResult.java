@@ -4,9 +4,8 @@ import com.nokhrin.accounting.domain.account.Account;
 
 import java.util.UUID;
 
-public record TransferOperationResult(
+public record WithdrawalResult(
         UUID operationId,
-        Account sourceAfter,
-        Account targetAfter
-) implements OperationResult {
+        Account accountAfter
+) implements Result {
 }

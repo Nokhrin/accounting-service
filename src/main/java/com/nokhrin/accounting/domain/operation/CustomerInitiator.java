@@ -1,4 +1,9 @@
 package com.nokhrin.accounting.domain.operation;
 
-public record CustomerInitiator(String id) implements Initiator {
+import java.util.UUID;
+
+public record CustomerInitiator(
+        UUID id,
+        String displayName
+) implements Initiator {
 }

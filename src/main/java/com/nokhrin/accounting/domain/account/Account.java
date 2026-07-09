@@ -24,6 +24,9 @@ public record Account(
         if (status == null) {
             throw new IllegalArgumentException("Status must not be null");
         }
+        if (holder==null){
+            throw new IllegalArgumentException("Account holder must not be null");
+        }
     }
 
     public static Account create(BigDecimal initialBalance, AccountHolder holder) {
@@ -63,13 +66,5 @@ public record Account(
             throw new IllegalStateException("Cannot close account with non-zero balance: " + balance);
         }
         return new Account(id, balance, AccountStatus.CLOSED, holder, createdAt, Instant.now());
-    }
-
-    public boolean isActive() {
-        return status == AccountStatus.ACTIVE;
-    }
-
-    public boolean hasSufficientFunds(BigDecimal amount) {
-        return balance.compareTo(amount) >= 0;
     }
 }

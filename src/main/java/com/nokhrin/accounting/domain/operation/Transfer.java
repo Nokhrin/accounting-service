@@ -11,9 +11,9 @@ public record Transfer(
         Account sourceAccount,
         Account targetAccount,
         BigDecimal amount
-) implements Operation<TransferOperationResult> {
+) implements Operation<TransferResult> {
 
-    public TransferOperationResult execute() {
+    public TransferResult execute() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Amount must be positive");
         }
@@ -47,7 +47,7 @@ public record Transfer(
                 transferTs
         );
 
-        return new TransferOperationResult(
+        return new TransferResult(
                 UUID.randomUUID(),
                 sourceAccountAfter,
                 targetAccountAfter
