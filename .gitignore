@@ -4,3 +4,4 @@
 target/
 allure-results/
 .jqwik-database
+test_db.mv.db

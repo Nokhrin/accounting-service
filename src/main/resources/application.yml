@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: accounting-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/accountingdb
+    username: accounting
+    password: accounting
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
