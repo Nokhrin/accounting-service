@@ -1,16 +1,13 @@
 package com.nokhrin.accounting.domain.account;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
 public record Account(
         UUID id,
         BigDecimal balance,
         AccountStatus status,
-        AccountHolder holder,
-        Instant createdAt,
-        Instant modifiedAt
+        AccountHolder holder
 ) {
 
     public Account {
@@ -29,15 +26,15 @@ public record Account(
         }
     }
 
-    public static Account create(BigDecimal initialBalance, AccountHolder holder) {
-        Instant creationTs = Instant.now();
+    public static Account open(
+            BigDecimal balance,
+            AccountHolder holder
+    ) {
         return new Account(
                 UUID.randomUUID(),
-                initialBalance,
+                balance,
                 AccountStatus.ACTIVE,
-                holder,
-                creationTs,
-                creationTs
+                holder
         );
     }
 
@@ -45,14 +42,14 @@ public record Account(
         if (status == AccountStatus.BLOCKED) {
             throw new IllegalStateException("Account " + id + " is already blocked");
         }
-        return new Account(id, balance, AccountStatus.BLOCKED, holder, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.BLOCKED, holder);
     }
 
     public Account activate() {
         if (status != AccountStatus.BLOCKED) {
             throw new IllegalStateException("Can only activate blocked account. Current status: " + status);
         }
-        return new Account(id, balance, AccountStatus.ACTIVE, holder, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.ACTIVE, holder);
     }
 
     public Account close() {
@@ -65,6 +62,6 @@ public record Account(
         if (balance.compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalStateException("Cannot close account with non-zero balance: " + balance);
         }
-        return new Account(id, balance, AccountStatus.CLOSED, holder, createdAt, Instant.now());
+        return new Account(id, balance, AccountStatus.CLOSED, holder);
     }
 }

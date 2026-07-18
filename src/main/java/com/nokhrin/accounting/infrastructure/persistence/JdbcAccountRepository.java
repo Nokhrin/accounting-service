@@ -20,8 +20,8 @@ public class JdbcAccountRepository implements AccountRepository {
     @Override
     public void save(Account account) {
         String createAccountQuery = """
-                INSERT INTO accounts (id, balance, status, holder_id, holder_display_name, created_at, modified_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO accounts (id, balance, status, holder_id, holder_display_name)
+                VALUES (?, ?, ?, ?, ?);
                 """;
 
         try (
@@ -33,8 +33,6 @@ public class JdbcAccountRepository implements AccountRepository {
             preparedStatement.setObject(3, account.status().name());
             preparedStatement.setObject(4, account.holder().id());
             preparedStatement.setObject(5, account.holder().displayName());
-            preparedStatement.setObject(6, Timestamp.from(account.createdAt()));
-            preparedStatement.setObject(7, Timestamp.from(account.modifiedAt()));
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
@@ -46,7 +44,7 @@ public class JdbcAccountRepository implements AccountRepository {
     @Override
     public Optional<Account> findById(UUID id) {
         String selectByIdQuery = """
-                SELECT id, balance, status, holder_id, holder_display_name, created_at, modified_at
+                SELECT id, balance, status, holder_id, holder_display_name
                 FROM public.accounts where id = ?;
                 """;
         try (
@@ -73,9 +71,7 @@ public class JdbcAccountRepository implements AccountRepository {
                 new AccountHolder(
                         resultSet.getObject("holder_id", UUID.class),
                         resultSet.getString("holder_display_name")
-                ),
-                resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getTimestamp("modified_at").toInstant()
+                )
         );
     }
 }

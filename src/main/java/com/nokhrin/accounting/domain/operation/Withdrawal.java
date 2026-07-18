@@ -1,34 +1,36 @@
 package com.nokhrin.accounting.domain.operation;
 
 import com.nokhrin.accounting.domain.account.Account;
+import com.nokhrin.accounting.domain.account.AccountNotOperableException;
 import com.nokhrin.accounting.domain.account.AccountStatus;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
 public record Withdrawal(
+        UUID operationId,
         Account sourceAccount,
         BigDecimal amount
 ) implements Operation<WithdrawalResult> {
-
-    public WithdrawalResult execute() {
+    private void validateOperation() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new InvalidAmountException("Amount must be positive", operationId, amount);
         }
         if (sourceAccount.status() != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Cannot withdraw from non-active account. Status: " + sourceAccount.status());
+            throw new AccountNotOperableException(sourceAccount, getClass().getSimpleName());
         }
         if (sourceAccount.balance().compareTo(amount) < 0) {
-            throw new IllegalArgumentException("Insufficient funds. Balance: " + sourceAccount.balance() + ", requested: " + amount);
+            throw new InsufficientBalanceException(sourceAccount.id(), sourceAccount.balance(), amount);
         }
+    }
+
+    public WithdrawalResult execute() {
+        validateOperation();
         Account sourceAccountAfter = new Account(
                 sourceAccount.id(),
                 sourceAccount.balance().subtract(amount),
                 sourceAccount.status(),
-                sourceAccount.holder(),
-                sourceAccount.createdAt(),
-                Instant.now()
+                sourceAccount.holder()
         );
 
         return new WithdrawalResult(

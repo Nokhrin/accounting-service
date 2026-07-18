@@ -2,6 +2,7 @@ package com.nokhrin.accounting.domain.operation;
 
 import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountHolder;
+import com.nokhrin.accounting.domain.account.AccountNotOperableException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -13,74 +14,74 @@ class OperationTest {
     private final AccountHolder HOLDER = new AccountHolder(UUID.fromString("00000000-0000-0000-0000-000000000001"), "test_holder_1");
 
     @Test
-    void deposit_valid_executes(){
-        Account account = Account.create(BigDecimal.ZERO, HOLDER);
-        Deposit deposit= new Deposit(account, BigDecimal.ONE);
+    void deposit_valid_executes() {
+        Account account = Account.open(BigDecimal.ZERO, HOLDER);
+        Deposit deposit = new Deposit(UUID.randomUUID(), account, BigDecimal.ONE);
         DepositResult result = deposit.execute();
         assertEquals(BigDecimal.ONE, result.accountAfter().balance());
     }
 
     @Test
-    void deposit_inactive_throwsException(){
-        Account blocked = Account.create(new BigDecimal(100), HOLDER).block();
-        Account closed = Account.create(BigDecimal.ZERO, HOLDER).close();
+    void deposit_inactive_throwsException() {
+        Account blocked = Account.open(new BigDecimal(100), HOLDER).block();
+        Account closed = Account.open(BigDecimal.ZERO, HOLDER).close();
 
         assertAll(
-                ()->assertThrows(IllegalStateException.class, ()-> new Deposit(blocked, BigDecimal.TEN).execute()),
-                ()->assertThrows(IllegalStateException.class, ()-> new Deposit(closed, BigDecimal.TEN).execute())
+                () -> assertThrows(AccountNotOperableException.class, () -> new Deposit(UUID.randomUUID(), blocked, BigDecimal.TEN).execute()),
+                () -> assertThrows(AccountNotOperableException.class, () -> new Deposit(UUID.randomUUID(), closed, BigDecimal.TEN).execute())
         );
     }
 
     @Test
-    void withdraw_sufficient_executes(){
-        Account account = Account.create(BigDecimal.ONE, HOLDER);
-        Withdrawal withdrawal=new Withdrawal(account, BigDecimal.ONE);
-        WithdrawalResult result= withdrawal.execute();
+    void withdraw_sufficient_executes() {
+        Account account = Account.open(BigDecimal.ONE, HOLDER);
+        Withdrawal withdrawal = new Withdrawal(UUID.randomUUID(), account, BigDecimal.ONE);
+        WithdrawalResult result = withdrawal.execute();
         assertEquals(BigDecimal.ZERO, result.accountAfter().balance());
     }
 
     @Test
-    void withdraw_insufficient_throws(){
-        Account account = Account.create(BigDecimal.ONE, HOLDER);
-        assertThrows(IllegalArgumentException.class,
-                ()-> new Withdrawal(account, BigDecimal.TEN).execute());
+    void withdraw_insufficient_throws() {
+        Account account = Account.open(BigDecimal.ONE, HOLDER);
+        assertThrows(InsufficientBalanceException.class,
+                () -> new Withdrawal(UUID.randomUUID(), account, BigDecimal.TEN).execute());
     }
 
     @Test
-    void transfer_valid_executes(){
-        Account sourceAccount = Account.create(BigDecimal.ONE, HOLDER);
-        Account targetAccount = Account.create(BigDecimal.ZERO, HOLDER);
-        Transfer transfer=new Transfer(sourceAccount, targetAccount, BigDecimal.ONE);
+    void transfer_valid_executes() {
+        Account sourceAccount = Account.open(BigDecimal.ONE, HOLDER);
+        Account targetAccount = Account.open(BigDecimal.ZERO, HOLDER);
+        Transfer transfer = new Transfer(UUID.randomUUID(), sourceAccount, targetAccount, BigDecimal.ONE);
         TransferResult result = transfer.execute();
         assertAll(
-                ()->assertEquals(BigDecimal.ZERO, result.sourceAfter().balance()),
-                ()->assertEquals(BigDecimal.ONE, result.targetAfter().balance())
+                () -> assertEquals(BigDecimal.ZERO, result.sourceAfter().balance()),
+                () -> assertEquals(BigDecimal.ONE, result.targetAfter().balance())
         );
     }
 
     @Test
-    void transfer_insufficient_throws(){
-        Account sourceAccount = Account.create(BigDecimal.ONE, HOLDER);
-        Account targetAccount = Account.create(BigDecimal.ZERO, HOLDER);
-        assertThrows(IllegalArgumentException.class,
-                ()->new Transfer(sourceAccount, targetAccount, BigDecimal.TEN).execute());
+    void transfer_insufficient_throws() {
+        Account sourceAccount = Account.open(BigDecimal.ONE, HOLDER);
+        Account targetAccount = Account.open(BigDecimal.ZERO, HOLDER);
+        assertThrows(InsufficientBalanceException.class,
+                () -> new Transfer(UUID.randomUUID(), sourceAccount, targetAccount, BigDecimal.TEN).execute());
     }
 
     @Test
-    void transfer_sourceBlocked_throws(){
-        Account sourceAccountBlocked = Account.create(BigDecimal.ONE, HOLDER).block();
-        Account targetAccount = Account.create(BigDecimal.ZERO, HOLDER);
-        assertThrows(IllegalStateException.class,
-                ()->new Transfer(sourceAccountBlocked, targetAccount, BigDecimal.ONE).execute()
+    void transfer_sourceBlocked_throws() {
+        Account sourceAccountBlocked = Account.open(BigDecimal.ONE, HOLDER).block();
+        Account targetAccount = Account.open(BigDecimal.ZERO, HOLDER);
+        assertThrows(AccountNotOperableException.class,
+                () -> new Transfer(UUID.randomUUID(), sourceAccountBlocked, targetAccount, BigDecimal.ONE).execute()
         );
     }
 
     @Test
-    void transfer_targetClosed_throws(){
-        Account sourceAccount = Account.create(BigDecimal.ONE, HOLDER);
-        Account targetAccountClosed = Account.create(BigDecimal.ZERO, HOLDER).close();
-        assertThrows(IllegalStateException.class,
-                ()->new Transfer(sourceAccount, targetAccountClosed, BigDecimal.ONE).execute()
+    void transfer_targetClosed_throws() {
+        Account sourceAccount = Account.open(BigDecimal.ONE, HOLDER);
+        Account targetAccountClosed = Account.open(BigDecimal.ZERO, HOLDER).close();
+        assertThrows(AccountNotOperableException.class,
+                () -> new Transfer(UUID.randomUUID(), sourceAccount, targetAccountClosed, BigDecimal.ONE).execute()
         );
     }
 }

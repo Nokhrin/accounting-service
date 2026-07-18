@@ -6,14 +6,12 @@ import com.nokhrin.accounting.domain.account.AccountRepository;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.flywaydb.core.Flyway;
-import org.h2.tools.Server;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,7 +49,7 @@ class JdbcAccountRepositoryTest {
     @Test
     void save_and_findById_cycle_preservesData() {
         AccountHolder holder = new AccountHolder(UUID.randomUUID(), "Test Holder");
-        Account accountToSave = Account.create(new BigDecimal("1500.00"), holder);
+        Account accountToSave = Account.open(new BigDecimal("1500.00"), holder);
 
         repository.save(accountToSave);
         Optional<Account> foundAccountOpt = repository.findById(accountToSave.id());

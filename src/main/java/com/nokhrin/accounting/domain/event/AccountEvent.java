@@ -1,9 +1,15 @@
 package com.nokhrin.accounting.domain.event;
 
-import java.time.Instant;
 import java.util.UUID;
 
-public sealed interface AccountEvent permits Deposited, Withdrawn, Transferred {
-    UUID eventId();
-    Instant occuredAt();
+public sealed interface AccountEvent extends Event permits
+        AccountOpened,
+        AccountBlocked,
+        AccountActivated,
+        AccountClosed
+{
+    UUID accountId();
+    default UUID aggregateId() {
+        return accountId();
+    }
 }
