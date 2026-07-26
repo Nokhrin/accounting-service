@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public record TransferResult(
         UUID operationId,
-        Account sourceAfter,
-        Account targetAfter
+        Account sourceAccountAfter,
+        Account targetAccountAfter
 ) implements Result {
 }

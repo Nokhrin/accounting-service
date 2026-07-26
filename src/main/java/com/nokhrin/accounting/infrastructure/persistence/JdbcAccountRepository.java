@@ -1,14 +1,15 @@
 package com.nokhrin.accounting.infrastructure.persistence;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountHolder;
 import com.nokhrin.accounting.domain.account.AccountRepository;
 import com.nokhrin.accounting.domain.account.AccountStatus;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 
 import javax.sql.DataSource;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -69,7 +70,7 @@ public class JdbcAccountRepository implements AccountRepository {
     }
 
     @Override
-    public Optional<Account> findById(UUID id) {
+    public Optional<Account> findById(UUID accountId) {
         String selectByIdQuery = """
                 SELECT id, balance, status, holder_id, holder_display_name
                 FROM public.accounts where id = ?;
@@ -78,7 +79,7 @@ public class JdbcAccountRepository implements AccountRepository {
             Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(selectByIdQuery)
         ) {
-            preparedStatement.setObject(1, id);
+            preparedStatement.setObject(1, accountId);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
                     return Optional.of(mapToDomain(resultSet));
@@ -86,7 +87,7 @@ public class JdbcAccountRepository implements AccountRepository {
                 return Optional.empty();
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to find account by id: " + id, e);
+            throw new RuntimeException("Failed to find account by id: " + accountId, e);
         }
     }
 

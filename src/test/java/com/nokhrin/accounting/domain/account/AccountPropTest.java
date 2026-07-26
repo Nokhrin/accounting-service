@@ -1,8 +1,6 @@
 package com.nokhrin.accounting.domain.account;
 
-import net.jqwik.api.ForAll;
-import net.jqwik.api.Property;
-import net.jqwik.api.constraints.Positive;
+import net.jqwik.api.*;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -11,12 +9,18 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AccountPropTest {
+    @Provide
+    Arbitrary<BigDecimal> nonNegativeBigDecimal(){
+        return Arbitraries.bigDecimals()
+                .between(BigDecimal.ZERO, new BigDecimal("1000000000000.00"))
+                .ofScale(2);
+    }
 
     private final AccountHolder HOLDER = new AccountHolder(UUID.fromString("00000000-0000-0000-0000-000000000001"), "test_holder_1");
 
     @Property
     void openedAccountBalanceNeverNegative(
-            @ForAll @Positive BigDecimal initialBalance
+            @ForAll @From("nonNegativeBigDecimal") BigDecimal initialBalance
     ) {
         Account account = Account.open(initialBalance, HOLDER);
         assertTrue(account.balance().compareTo(BigDecimal.ZERO) >= 0);
@@ -24,7 +28,7 @@ class AccountPropTest {
 
     @Property
     void identityPreservedAfterTransition(
-            @ForAll @Positive BigDecimal initialBalance
+            @ForAll @From("nonNegativeBigDecimal") BigDecimal initialBalance
     ) {
         Account opened = Account.open(initialBalance, HOLDER);
         Account blocked = opened.block();
@@ -40,15 +44,15 @@ class AccountPropTest {
 
     @Property
     void transitionReturnsNewInstance(
-            @ForAll @Positive BigDecimal initialBalance
+            @ForAll @From("nonNegativeBigDecimal") BigDecimal initialBalance
     ) {
         Account opened = Account.open(initialBalance, HOLDER);
         Account blocked = opened.block();
         Account activated = blocked.activate();
 
         assertAll(
-                () -> assertNotSame(opened.holder(), blocked.holder()),
-                () -> assertNotSame(opened.holder(), activated.holder())
+                () -> assertNotSame(opened, blocked),
+                () -> assertNotSame(opened, activated)
         );
     }
 
@@ -63,7 +67,7 @@ class AccountPropTest {
 
     @Property
     void activateBlockedAllowed(
-            @ForAll BigDecimal balance
+            @ForAll @From("nonNegativeBigDecimal") BigDecimal balance
     ){
         Account account = Account.open(balance, HOLDER);
         assertThrows(IllegalStateException.class, account::activate);

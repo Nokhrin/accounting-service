@@ -5,10 +5,11 @@ import java.util.UUID;
 
 public sealed interface Event permits AccountEvent, OperationEvent
 {
-    UUID id();
+    UUID eventId();
     default String type(){
         return getClass().getSimpleName();
     }
+    Instant executedAt();
+    Instant recordedAt();
     UUID aggregateId();
-    Instant occurredAt();
 }

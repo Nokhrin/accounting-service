@@ -1,54 +1,64 @@
 openapi: 3.1.0
 info:
-  title: Accounting Service API
-  version: 0.1.0
-  description: REST API для управления банковскими счетами
-  contact:
-    name: Alexander Nokhrin
-    email: a.v.nokhrin@yandex.ru
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
-
-servers:
-  - url: http://localhost:8080
-    description: Local development
+  title: Accounting Service
+  version: 0.0.1
 
 paths:
   /accounts:
+    get:
+      summary: Get list of accounts
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
     post:
-      summary: Открытие нового счета
-      description: Создание нового банковского счета с начальным балансом
-      operationId: createAccount
-      tags:
-        - Accounts
+      summary: Open new account
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAccountRequest'
+              $ref: '#/components/schemas/OpenAccountRequest'
       responses:
         '201':
-          description: Счет успешно создан
+          description: Account opened
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountResponse'
+                $ref: '#/components/schemas/Account'
         '400':
-          description: Ошибка валидации запроса
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /accounts/{id}/deposit:
-    post:
-      summary: Пополнение счета
-      operationId: deposit
-      tags:
-        - Accounts
+          description: Invalid request
+
+  /accounts/{id}:
+    get:
+      summary: Get account info
       parameters:
         - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+
+  /accounts/{target_id}/deposit:
+    post:
+      summary: Deposit funds
+      parameters:
+        - name: target_id
           in: path
           required: true
           schema:
@@ -59,83 +69,128 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DepositRequest'
+              $ref: '#/components/schemas/AmountRequest'
       responses:
         '200':
-          description: Счет пополнен
+          description: Deposit succeeded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperationResponse'
+                $ref: '#/components/schemas/Account'
         '400':
-          description: Ошибка валидации или неактивный счет
+          description: Invalid amount or inactive account
         '404':
-          description: Счет не найден
+          description: Account not found
+
+  /accounts/{source_id}/withdraw:
+    post:
+      summary: Withdraw funds
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountRequest'
+      responses:
+        '200':
+          description: Withdrawal succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: Invalid amount or insufficient funds
+        '404':
+          description: Account not found
+
+  /accounts/{source_id}/{target_id}/transfer:
+    post:
+      summary: Transfer funds
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: target_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountRequest'
+      responses:
+        '200':
+          description: Transfer succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    $ref: '#/components/schemas/Account'
+                  target:
+                    $ref: '#/components/schemas/Account'
+        '400':
+          description: Invalid amount or insufficient funds
+        '404':
+          description: Account not found
 
 components:
   schemas:
-    CreateAccountRequest:
-      type: object
-      required:
-        - initialBalance
-      properties:
-        initialBalance:
-          type: number
-          format: decimal
-          minimum: 0
-          description: Начальный баланс счета
-          example: 1000.00
-
-    AccountResponse:
+    Account:
       type: object
       properties:
         id:
           type: string
           format: uuid
-          description: Уникальный идентификатор счета
         balance:
           type: number
-          format: decimal
-          description: Текущий баланс
         status:
           type: string
           enum: [ACTIVE, BLOCKED, CLOSED]
-          description: Статус счета
-        createdAt:
-          type: string
-          format: date-time
-          description: Дата и время создания счета
+        holder:
+          $ref: '#/components/schemas/AccountHolder'
 
-    ErrorResponse:
+    AccountHolder:
       type: object
       properties:
-        error:
+        id:
           type: string
-          description: Описание ошибки
-        timestamp:
+          format: uuid
+        displayName:
           type: string
-          format: date-time
-          description: Время возникновения ошибки
 
-    DepositRequest:
+    OpenAccountRequest:
       type: object
-      required: [amount]
+      required:
+        - initialBalance
+        - holder
+      properties:
+        initialBalance:
+          type: number
+          minimum: 0
+        holder:
+          $ref: '#/components/schemas/AccountHolder'
+
+    AmountRequest:
+      type: object
+      required:
+        - amount
       properties:
         amount:
           type: number
-          format: decimal
           minimum: 0.01
-
-    OperationResponse:
-      type: object
-      properties:
-        operationId:
-          type: string
-          format: uuid
-        accountId:
-          type: string
-          format: uuid
-        newBalance:
-          type: number
-        status:
-          type: string

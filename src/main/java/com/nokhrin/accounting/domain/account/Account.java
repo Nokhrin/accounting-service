@@ -1,5 +1,7 @@
 package com.nokhrin.accounting.domain.account;
 
+import com.nokhrin.accounting.api.dto.AccountResponse;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -63,5 +65,14 @@ public record Account(
             throw new IllegalStateException("Cannot close account with non-zero balance: " + balance);
         }
         return new Account(id, balance, AccountStatus.CLOSED, holder);
+    }
+
+    public AccountResponse toResponse() {
+        return new AccountResponse(
+                this.id(),
+                this.balance(),
+                this.status().name(),
+                this.holder.toResponse()
+        );
     }
 }

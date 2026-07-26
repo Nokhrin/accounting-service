@@ -21,23 +21,24 @@ public class JdbcEventRepository implements EventRepository {
     }
 
     @Override
-    public void append(Event event) {
+    public void record(Event event) {
 
         String insertEventQuery = """
                 INSERT INTO public.events
-                (id, type, aggregate_id, occurred_at, payload)
-                VALUES(?, ?, ?, ?, ?);
+                (id, type, aggregate_id, payload, executed_at, recorded_at)
+                VALUES(?, ?, ?, ?, ?, ?);
                 """;
 
         try (
                 Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement= connection.prepareStatement(insertEventQuery)
                 ) {
-            preparedStatement.setObject(1, event.id());
+            preparedStatement.setObject(1, event.eventId());
             preparedStatement.setString(2, event.type());
             preparedStatement.setObject(3, event.aggregateId());
-            preparedStatement.setTimestamp(4, Timestamp.from(event.occurredAt()));
-            preparedStatement.setObject(5, mapper.writeValueAsString(event));
+            preparedStatement.setObject(4, mapper.writeValueAsString(event));
+            preparedStatement.setTimestamp(5, Timestamp.from(event.executedAt()));
+            preparedStatement.setTimestamp(6, Timestamp.from(event.recordedAt()));
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save event", e);
         } catch (JsonProcessingException e) {
@@ -48,7 +49,7 @@ public class JdbcEventRepository implements EventRepository {
     @Override
     public List<Event> findByAccountId(UUID accountId) {
         String selectByIdQuery = """
-                SELECT id, "type", aggregate_id, occurred_at, payload, created_at
+                SELECT id, "type", aggregate_id, payload, executed_at, created_at
                 FROM public.events
                 WHERE aggregate_id = ?;
                 """;

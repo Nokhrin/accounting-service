@@ -27,8 +27,8 @@ public record Transfer(
 
         return new TransferResult(
                 operationId,
-                depositResult.accountAfter(),
-                withdrawalResult.accountAfter()
+                withdrawalResult.accountAfter(),
+                depositResult.accountAfter()
         );
     }
 }

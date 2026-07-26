@@ -54,8 +54,8 @@ class OperationTest {
         Transfer transfer = new Transfer(UUID.randomUUID(), sourceAccount, targetAccount, BigDecimal.ONE);
         TransferResult result = transfer.execute();
         assertAll(
-                () -> assertEquals(BigDecimal.ZERO, result.sourceAfter().balance()),
-                () -> assertEquals(BigDecimal.ONE, result.targetAfter().balance())
+                () -> assertEquals(BigDecimal.ZERO, result.sourceAccountAfter().balance()),
+                () -> assertEquals(BigDecimal.ONE, result.targetAccountAfter().balance())
         );
     }
 

@@ -4,8 +4,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record AccountClosed(
-        UUID id,
+        UUID eventId,
         UUID accountId,
-        Instant occurredAt
+        Instant executedAt,
+        Instant recordedAt
 ) implements AccountEvent {
 }
