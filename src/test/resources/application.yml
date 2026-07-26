@@ -1,9 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:tc:postgresql:17-alpine:///test_db
-    username: test
-    password: test
-  flyway:
-    enabled: true
-    clean-disabled: false
-    locations: classpath:db/migration

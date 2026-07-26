@@ -5,10 +5,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record FundsDeposited(
-        UUID id,
+        UUID eventId,
         UUID operationId,
         BigDecimal amount,
         UUID targetAccountId,
-        Instant occurredAt
+        Instant executedAt,
+        Instant recordedAt
 ) implements OperationEvent {
 }

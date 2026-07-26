@@ -7,12 +7,13 @@ import com.nokhrin.accounting.domain.account.AccountStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,11 +29,18 @@ class JdbcAccountRepositoryIntegrationTest {
             .withUsername("test")
             .withPassword("test");
 
+    @DynamicPropertySource
+    static void registerContainerProperties(DynamicPropertyRegistry registry){
+        registry.add("spring.datasource.url",postgreSQLContainer::getJdbcUrl);
+        registry.add("spring.datasource.username",postgreSQLContainer::getUsername);
+        registry.add("spring.datasource.password",postgreSQLContainer::getPassword);
+    }
+
     @Autowired
     private AccountRepository accountRepository;
 
     @Test
-    void create_and_findById_dataPersists() throws SQLException {
+    void create_and_findById_dataPersists() {
         AccountHolder holder = new AccountHolder(UUID.randomUUID(), "integration tester");
         Account account = Account.open(BigDecimal.ZERO, holder);
 
