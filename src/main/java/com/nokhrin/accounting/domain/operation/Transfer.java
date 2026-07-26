@@ -20,14 +20,13 @@ public record Transfer(
     public TransferResult execute() {
         validateOperation();
 
-        Deposit deposit = new Deposit(UUID.randomUUID(), targetAccount, amount);
-        Withdrawal withdrawal = new Withdrawal(UUID.randomUUID(), sourceAccount, amount);
-
+        Deposit deposit = new Deposit(operationId, targetAccount, amount);
+        Withdrawal withdrawal = new Withdrawal(operationId, sourceAccount, amount);
         DepositResult depositResult = deposit.execute();
         WithdrawalResult withdrawalResult = withdrawal.execute();
 
         return new TransferResult(
-                UUID.randomUUID(),
+                operationId,
                 depositResult.accountAfter(),
                 withdrawalResult.accountAfter()
         );

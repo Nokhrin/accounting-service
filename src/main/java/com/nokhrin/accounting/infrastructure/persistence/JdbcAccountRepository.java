@@ -1,9 +1,11 @@
 package com.nokhrin.accounting.infrastructure.persistence;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountHolder;
 import com.nokhrin.accounting.domain.account.AccountRepository;
 import com.nokhrin.accounting.domain.account.AccountStatus;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -18,14 +20,14 @@ public class JdbcAccountRepository implements AccountRepository {
     }
 
     @Override
-    public void save(Account account) {
+    public void create(Account account) {
         String createAccountQuery = """
                 INSERT INTO accounts (id, balance, status, holder_id, holder_display_name)
                 VALUES (?, ?, ?, ?, ?);
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+            Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(createAccountQuery)
         ) {
             preparedStatement.setObject(1, account.id());
@@ -36,9 +38,34 @@ public class JdbcAccountRepository implements AccountRepository {
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("Create account failed", e);
+            throw new RuntimeException("Failed to Create account", e);
         }
 
+    }
+
+    @Override
+    public void update(Account account) {
+        String updateAccountQuery = """
+            UPDATE public.accounts
+            SET balance=?, status=?
+            WHERE id=?;
+            """;
+
+        try (
+                Connection connection = dataSource.getConnection();
+                PreparedStatement preparedStatement = connection.prepareStatement(updateAccountQuery);
+        ) {
+                preparedStatement.setBigDecimal(1, account.balance());
+                preparedStatement.setString(2, account.status().name());
+                preparedStatement.setObject(3, account.id());
+
+                int updatedRowsCount = preparedStatement.executeUpdate();
+            if (updatedRowsCount == 0) {
+                throw new IllegalArgumentException("Update failed, did not find account " + account.id());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Account update failed", e);
+        }
     }
 
     @Override
@@ -48,7 +75,7 @@ public class JdbcAccountRepository implements AccountRepository {
                 FROM public.accounts where id = ?;
                 """;
         try (
-                Connection connection = dataSource.getConnection();
+            Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(selectByIdQuery)
         ) {
             preparedStatement.setObject(1, id);
@@ -63,15 +90,19 @@ public class JdbcAccountRepository implements AccountRepository {
         }
     }
 
-    private Account mapToDomain(ResultSet resultSet) throws SQLException {
-        return new Account(
-                resultSet.getObject("id", UUID.class),
-                resultSet.getBigDecimal("balance"),
-                AccountStatus.valueOf(resultSet.getString("status")),
-                new AccountHolder(
-                        resultSet.getObject("holder_id", UUID.class),
-                        resultSet.getString("holder_display_name")
-                )
-        );
+    private Account mapToDomain(ResultSet resultSet) {
+        try {
+            return new Account(
+                    resultSet.getObject("id", UUID.class),
+                    resultSet.getBigDecimal("balance"),
+                    AccountStatus.valueOf(resultSet.getString("status")),
+                    new AccountHolder(
+                            resultSet.getObject("holder_id", UUID.class),
+                            resultSet.getString("holder_display_name")
+                    )
+            );
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to map DB response to Account", e);
+        }
     }
 }

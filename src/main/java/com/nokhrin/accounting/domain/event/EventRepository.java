@@ -4,6 +4,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface EventRepository {
-    void save(Event event);
+    void append(Event event);
     List<Event> findByAccountId(UUID accountId);
 }

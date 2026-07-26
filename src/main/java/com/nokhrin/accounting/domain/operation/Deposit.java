@@ -31,7 +31,7 @@ public record Deposit(
         );
 
         return new DepositResult(
-                UUID.randomUUID(),
+                operationId,
                 targetAccountAfter
         );
     }

@@ -34,7 +34,7 @@ public record Withdrawal(
         );
 
         return new WithdrawalResult(
-                UUID.randomUUID(),
+                operationId,
                 sourceAccountAfter
         );
     }
