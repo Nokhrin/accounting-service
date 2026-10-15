@@ -1,0 +1,292 @@
+@startuml
+!include <C4/C4_Context>
+
+title System Context (Level 1)
+
+Person(customer, "Customer", "A person with one or more accounts")
+System(fams, "Financial Account Management System", "Manages financial accounts")
+
+Rel(customer, fams, "Manages accounts")
+
+@enduml
+
+@startuml
+!include <C4/C4_Container>
+
+title Containers (Level 2)
+
+Person(customer, "Customer", "A person with one or more accounts")
+
+System_Boundary(fams, "Financial Account Management System") {
+  Container(api, "Account Management API", "Java, Spring Boot", "Provides account management endpoints")
+  ContainerDb(db, "Accounts Database", "PostgreSQL", "Stores accounts and their data")
+}
+
+Rel(customer, api, "Uses", "HTTP/JSON")
+Rel(api, db, "Reads from and writes to", "SQL/TCP")
+
+@enduml
+
+
+@startuml
+title Sequence: OpenAccount
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Open" as Open
+participant "Accounts Repository" as Repo
+participant "Event Journal" as Journal
+database "Accounts Database" as DB
+
+Customer -> API: Open account
+API -> Service: execute Open(initialBalance, holder)
+
+Service -> Open: execute(initialBalance, holder)
+Open --> Service: OpenResult(newAccount)
+
+Service -> Repo: save(newAccount)
+Repo -> DB: INSERT account
+DB --> Repo: success
+
+Service -> Journal: record Opened
+Journal -> DB: INSERT event
+DB --> Journal: success
+
+Service --> API: OpenResult
+API --> Customer: Account opened,\nAccount location
+@enduml
+
+
+@startuml
+title Sequence: CloseAccount
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Close" as Close
+participant "Accounts Repository" as Repo
+participant "Event Journal" as Journal
+database "Accounts Database" as DB
+
+Customer -> API: Close account
+API -> Service: execute Close(accountId)
+
+Service -> Repo: findById(accountId)
+Repo -> DB: SELECT account
+
+alt Account found, ACTIVE, balance = 0
+  DB --> Repo: account data
+  Repo --> Service: Account
+  Service -> Close: execute(account)
+  Close --> Service: CloseResult(closedAccount)
+  Service -> Repo: save(closedAccount)
+  Repo -> DB: UPDATE account
+  DB --> Repo: success
+  Service -> Journal: record Closed
+  Journal -> DB: INSERT event
+  DB --> Journal: success
+  Service --> API: CloseResult
+  API --> Customer: Account closed
+else Account not found
+  Service --> API: AccountNotFound
+  API --> Customer: AccountNotFound
+else Non-zero balance
+  Service --> API: BalanceNotZero
+  API --> Customer: BalanceNotZero
+else Account not ACTIVE
+  Service --> API: AccountNotActive
+  API --> Customer: AccountNotActive
+end
+@enduml
+
+
+@startuml
+title Sequence: GetBalance
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Accounts Repository" as Repo
+database "Accounts Database" as DB
+
+Customer -> API: Get balance
+API -> Service: getBalance(accountId)
+
+Service -> Repo: findById(accountId)
+Repo -> DB: SELECT account
+
+alt Account found
+  DB --> Repo: account data
+  Repo --> Service: Account
+  Service --> API: BalanceResult(balance)
+  API --> Customer: Balance
+else Account not found
+  DB --> Repo: empty
+  Repo --> Service: not found
+  Service --> API: AccountNotFound
+  API --> Customer: Not Found
+end
+@enduml
+
+@startuml
+title Sequence: Deposit
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Deposit" as Deposit
+participant "Accounts Repository" as Repo
+participant "Event Journal" as Journal
+database "Accounts Database" as DB
+
+Customer -> API: Deposit
+API -> Service: execute Deposit(accountId, amount)
+
+Service -> Repo: findById(accountId)
+Repo -> DB: SELECT account
+
+alt Account found, ACTIVE, valid amount
+  DB --> Repo: account data
+  Repo --> Service: Account
+  Service -> Deposit: execute(account, amount)
+  Deposit --> Service: DepositResult(newAccount)
+  Service -> Repo: save(newAccount)
+  Repo -> DB: UPDATE account
+  DB --> Repo: success
+  Service -> Journal: record Deposited
+  Journal -> DB: INSERT event
+  DB --> Journal: success
+  Service --> API: DepositResult
+  API --> Customer: Deposited
+else Account not found
+  DB --> Repo: empty
+  Repo --> Service: not found
+  Service --> API: AccountNotFound
+  API --> Customer: AccountNotFound
+else Account not ACTIVE
+  Service --> API: AccountNotOperable
+  API --> Customer: AccountNotOperable
+else Invalid amount
+  Service --> API: InvalidAmount
+  API --> Customer: InvalidAmount
+end
+@enduml
+
+
+@startuml
+title Sequence: Withdraw
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Withdrawal" as Withdrawal
+participant "Accounts Repository" as Repo
+participant "Event Journal" as Journal
+database "Accounts Database" as DB
+
+Customer -> API: Withdraw
+API -> Service: execute Withdrawal(accountId, amount)
+
+Service -> Repo: findById(accountId)
+Repo -> DB: SELECT account
+
+alt Account found, ACTIVE, sufficient balance
+  DB --> Repo: account data
+  Repo --> Service: Account
+  Service -> Withdrawal: execute(account, amount)
+  Withdrawal --> Service: WithdrawalResult(newAccount)
+  Service -> Repo: save(newAccount)
+  Repo -> DB: UPDATE account
+  DB --> Repo: success
+  Service -> Journal: record Withdrawn
+  Journal -> DB: INSERT event
+  DB --> Journal: success
+  Service --> API: WithdrawalResult
+  API --> Customer: Withdrawn
+else Account not found
+  Service --> API: AccountNotFound
+  API --> Customer: AccountNotFound
+else Insufficient balance
+  Service --> API: InsufficientFunds
+  API --> Customer: InsufficientFunds
+else Account not ACTIVE
+  Service --> API: AccountNotOperable
+  API --> Customer: AccountNotOperable
+else Invalid amount
+  Service --> API: InvalidAmount
+  API --> Customer: InvalidAmount
+end
+@enduml
+
+
+@startuml
+title Sequence: Transfer
+
+actor Customer
+participant "REST API" as API
+participant "Application Service" as Service
+participant "Transfer" as Transfer
+participant "Accounts Repository" as Repo
+participant "Event Journal" as Journal
+database "Accounts Database" as DB
+
+Customer -> API: Transfer
+API -> Service: execute Transfer(sourceId, targetId, amount)
+
+Service -> Repo: find source and target
+Repo -> DB: SELECT accounts
+DB --> Repo: source and target
+
+alt Both accounts found, ACTIVE, sufficient funds
+  Repo --> Service: source and target
+  Service -> Transfer: execute(source, target, amount)
+  Transfer --> Service: TransferResult(sourceAfter, targetAfter)
+  Service -> Repo: save(sourceAfter)
+  Service -> Repo: save(targetAfter)
+  Repo -> DB: UPDATE accounts (transactional)
+  DB --> Repo: success
+  Service -> Journal: record Transferred
+  Journal -> DB: INSERT event
+  DB --> Journal: success
+  Service --> API: TransferResult
+  API --> Customer: Transferred
+else Account not found
+  Service --> API: AccountNotFound
+  API --> Customer: AccountNotFound
+else Insufficient funds or inactive
+  Service --> API: OperationFailed
+  API --> Customer: OperationFailed
+else Invalid amount
+  Service --> API: InvalidAmount
+  API --> Customer: InvalidAmount
+end
+@enduml
+
+
+
+@startuml
+title Deployment
+
+node "Application Server" as appServer {
+  artifact "Account Management API" as api
+}
+
+node "Database Server" as dbServer {
+  database "Accounts Database" as db
+}
+
+api --> db : JDBC/TCP
+
+note right of api
+  On startup:
+  Flyway applies database migrations.
+
+  Required environment variables:
+  DB_USERNAME
+  DB_PASSWORD
+
+  Basic authentication is enabled by default.
+end note
+
+@enduml
