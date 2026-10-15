@@ -26,47 +26,50 @@ public class JdbcEventRepository implements EventRepository {
         String insertEventQuery = """
                 INSERT INTO public.events
                 (id, type, aggregate_id, payload, executed_at, recorded_at)
-                VALUES(?, ?, ?, ?, ?, ?);
+                VALUES(?, ?, ?, CAST(? AS jsonb), ?, ?);
                 """;
 
+        Connection connection = DataSourceUtils.getConnection(dataSource);
         try (
-                Connection connection = dataSource.getConnection();
-                PreparedStatement preparedStatement= connection.prepareStatement(insertEventQuery)
-                ) {
+                PreparedStatement preparedStatement = connection.prepareStatement(insertEventQuery)
+        ) {
             preparedStatement.setObject(1, event.eventId());
             preparedStatement.setString(2, event.type());
             preparedStatement.setObject(3, event.aggregateId());
             preparedStatement.setObject(4, mapper.writeValueAsString(event));
             preparedStatement.setTimestamp(5, Timestamp.from(event.executedAt()));
             preparedStatement.setTimestamp(6, Timestamp.from(event.recordedAt()));
+            preparedStatement.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save event", e);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize event body", e);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
         }
     }
 
     @Override
     public List<Event> findByAccountId(UUID accountId) {
         String selectByIdQuery = """
-                SELECT id, "type", aggregate_id, payload, executed_at, created_at
+                SELECT id, "type", aggregate_id, payload, executed_at, recorded_at
                 FROM public.events
                 WHERE aggregate_id = ?;
                 """;
 
-        Connection connection=DataSourceUtils.getConnection(dataSource);
-        try (PreparedStatement preparedStatement=connection.prepareStatement(selectByIdQuery)){
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectByIdQuery)) {
             preparedStatement.setObject(1, accountId);
 
-            try (ResultSet resultSet=preparedStatement.executeQuery()){
-                List<Event> events=new ArrayList<>();
-                while (resultSet.next()){
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                List<Event> events = new ArrayList<>();
+                while (resultSet.next()) {
                     events.add(mapEvent(resultSet, mapper));
                 }
                 return events;
             }
         } catch (SQLException | JsonProcessingException e) {
-            throw new RuntimeException("Event not found by account id: " + accountId,e);
+            throw new RuntimeException("Event not found by account id: " + accountId, e);
         }
     }
 
@@ -74,7 +77,7 @@ public class JdbcEventRepository implements EventRepository {
         String type = resultSet.getString("type");
         String payload = resultSet.getString("payload");
 
-        return switch (type){
+        return switch (type) {
             case "AccountOpened" -> mapper.readValue(payload, AccountOpened.class);
             case "AccountBlocked" -> mapper.readValue(payload, AccountBlocked.class);
             case "AccountActivated" -> mapper.readValue(payload, AccountActivated.class);

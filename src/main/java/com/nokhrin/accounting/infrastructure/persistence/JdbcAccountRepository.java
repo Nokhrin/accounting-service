@@ -4,6 +4,7 @@ import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountHolder;
 import com.nokhrin.accounting.domain.account.AccountRepository;
 import com.nokhrin.accounting.domain.account.AccountStatus;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -27,8 +28,8 @@ public class JdbcAccountRepository implements AccountRepository {
                 VALUES (?, ?, ?, ?, ?);
                 """;
 
+        Connection connection = DataSourceUtils.getConnection(dataSource);
         try (
-            Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(createAccountQuery)
         ) {
             preparedStatement.setObject(1, account.id());
@@ -40,6 +41,8 @@ public class JdbcAccountRepository implements AccountRepository {
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to Create account", e);
+        }finally {
+            DataSourceUtils.releaseConnection(connection,dataSource);
         }
 
     }
@@ -47,25 +50,26 @@ public class JdbcAccountRepository implements AccountRepository {
     @Override
     public void update(Account account) {
         String updateAccountQuery = """
-            UPDATE public.accounts
-            SET balance=?, status=?
-            WHERE id=?;
-            """;
-
+                UPDATE public.accounts
+                SET balance=?, status=?
+                WHERE id=?;
+                """;
+        Connection connection = DataSourceUtils.getConnection(dataSource);
         try (
-                Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(updateAccountQuery);
         ) {
-                preparedStatement.setBigDecimal(1, account.balance());
-                preparedStatement.setString(2, account.status().name());
-                preparedStatement.setObject(3, account.id());
+            preparedStatement.setBigDecimal(1, account.balance());
+            preparedStatement.setString(2, account.status().name());
+            preparedStatement.setObject(3, account.id());
 
-                int updatedRowsCount = preparedStatement.executeUpdate();
+            int updatedRowsCount = preparedStatement.executeUpdate();
             if (updatedRowsCount == 0) {
                 throw new IllegalArgumentException("Update failed, did not find account " + account.id());
             }
         } catch (SQLException e) {
             throw new RuntimeException("Account update failed", e);
+        }finally {
+            DataSourceUtils.releaseConnection(connection,dataSource);
         }
     }
 
@@ -75,8 +79,9 @@ public class JdbcAccountRepository implements AccountRepository {
                 SELECT id, balance, status, holder_id, holder_display_name
                 FROM public.accounts where id = ?;
                 """;
+
+        Connection connection = DataSourceUtils.getConnection(dataSource);
         try (
-            Connection connection = dataSource.getConnection();
                 PreparedStatement preparedStatement = connection.prepareStatement(selectByIdQuery)
         ) {
             preparedStatement.setObject(1, accountId);
@@ -88,6 +93,8 @@ public class JdbcAccountRepository implements AccountRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find account by id: " + accountId, e);
+        }finally {
+            DataSourceUtils.releaseConnection(connection,dataSource);
         }
     }
 
