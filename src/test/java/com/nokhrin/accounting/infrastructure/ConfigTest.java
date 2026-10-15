@@ -14,23 +14,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigTest {
-    @Test
-    void defaultObjectMapper_DeserializeInstantFailure() {
-        ObjectMapper mapper = new ObjectMapper();
-
-        String expectedTimestamp = "2026-07-26T01:23:45Z";
-        FundsDeposited fundsDepositedEvent = new FundsDeposited(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                new BigDecimal("100"),
-                UUID.randomUUID(),
-                Instant.parse(expectedTimestamp),
-                Instant.parse("2026-07-27T12:34:56Z")
-        );
-
-        assertThrows(JsonProcessingException.class,
-                () -> mapper.writeValueAsString(fundsDepositedEvent));
-    }
 
     @Test
     void defaultObjectMapper_DeserializeInstantSuccess() {
@@ -64,5 +47,22 @@ class ConfigTest {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    void configObjectMapper_serializesInstant() {
+        Config config = new Config();
+        ObjectMapper mapper = config.objectMapper();
+
+        String expectedTimestamp = "2026-07-26T01:23:45Z";
+        FundsDeposited event = new FundsDeposited(
+                UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("100"),
+                UUID.randomUUID(), Instant.parse(expectedTimestamp), Instant.now()
+        );
+
+        assertDoesNotThrow(() -> {
+            String serialized = mapper.writeValueAsString(event);
+            assertTrue(serialized.contains(expectedTimestamp));
+        });
     }
 }

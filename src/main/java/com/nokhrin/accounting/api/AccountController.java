@@ -3,6 +3,7 @@ package com.nokhrin.accounting.api;
 import com.nokhrin.accounting.api.dto.AmountRequest;
 import com.nokhrin.accounting.api.dto.OpenAccountRequest;
 import com.nokhrin.accounting.api.dto.Response;
+import com.nokhrin.accounting.api.dto.TransferResponse;
 import com.nokhrin.accounting.application.AccountService;
 import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.operation.DepositResult;
@@ -27,13 +28,13 @@ public class AccountController {
     @PostMapping
     public ResponseEntity<Response> openAccount(@Valid @RequestBody OpenAccountRequest request) {
         Account account = accountService.openAccount(request.initialBalance(), request.holder());
-        Response response=account.toResponse();
+        Response response = account.toResponse();
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Response> getAccount(@PathVariable UUID accountId){
-        Account account=accountService.getAccount(accountId);
+    public ResponseEntity<Response> getAccount(@PathVariable UUID accountId) {
+        Account account = accountService.getAccount(accountId);
         return ResponseEntity.ok(account.toResponse());
     }
 
@@ -41,8 +42,8 @@ public class AccountController {
     public ResponseEntity<Response> deposit(
             @PathVariable UUID targetId,
             @Valid @RequestBody AmountRequest request
-            ){
-        DepositResult result=accountService.deposit(targetId, request.amount());
+    ) {
+        DepositResult result = accountService.deposit(targetId, request.amount());
         return ResponseEntity.ok(result.accountAfter().toResponse());
     }
 
@@ -50,8 +51,8 @@ public class AccountController {
     public ResponseEntity<Response> withdraw(
             @PathVariable UUID sourceId,
             @Valid @RequestBody AmountRequest request
-            ){
-        WithdrawalResult result=accountService.withdraw(sourceId, request.amount());
+    ) {
+        WithdrawalResult result = accountService.withdraw(sourceId, request.amount());
         return ResponseEntity.ok(result.accountAfter().toResponse());
     }
 
@@ -60,9 +61,12 @@ public class AccountController {
             @PathVariable UUID sourceId,
             @PathVariable UUID targetId,
             @Valid @RequestBody AmountRequest request
-            ){
-        TransferResult result=accountService.transfer(sourceId, targetId, request.amount());
-        return null;
+    ) {
+        TransferResult result = accountService.transfer(sourceId, targetId, request.amount());
+        return ResponseEntity.ok(new TransferResponse(
+                result.sourceAccountAfter().toResponse(),
+                result.targetAccountAfter().toResponse()
+        ));
     }
 
 }

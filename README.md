@@ -40,5 +40,5 @@ Backend для управления банковскими счетами
 - PostgreSQL 17
 - JUnit 5 + Mockito + jqwik + pitest
 
-[Архитектура](https://nokhrin.github.io/accounting-service/architecture.svg)
-[Разработка](docs/dev.md)
+- [Архитектура](https://nokhrin.github.io/accounting-service/architecture.svg)
+- [Разработка](docs/dev.md)
