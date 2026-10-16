@@ -12,8 +12,9 @@
     <version>0.0.1-SNAPSHOT</version>
 
     <properties>
-        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <java.version>25</java.version>
+        <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <jjwt.version>0.13.0</jjwt.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <testcontainers-postgresql.version>1.21.4</testcontainers-postgresql.version>
@@ -153,9 +154,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.mapstruct</groupId>
@@ -177,6 +178,7 @@
                     <excludes>
                         <exclude>com/nokhrin/accounting/generated/**</exclude>
                         <exclude>com/nokhrin/accounting/AccountingApp.class</exclude>
+                        <exclude>com/nokhrin/accounting/infrastructure/persistence/SeedRunner.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
