@@ -1,0 +1,7 @@
+# .dockerignore
+.env
+.idea/
+target/
+*.iml
+allure-results/
+.jqwik-database
