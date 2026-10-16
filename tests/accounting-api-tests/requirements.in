@@ -1,0 +1,6 @@
+pytest
+allure-pytest
+httpx
+pydantic
+pydantic-settings
+ruff
