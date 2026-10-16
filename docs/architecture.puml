@@ -1,4 +1,4 @@
-@startuml
+@startuml system-context
 !include <C4/C4_Context>
 
 title System Context (Level 1)
@@ -10,7 +10,7 @@ Rel(customer, fams, "Manages accounts")
 
 @enduml
 
-@startuml
+@startuml containers
 !include <C4/C4_Container>
 
 title Containers (Level 2)
@@ -27,8 +27,34 @@ Rel(api, db, "Reads from and writes to", "SQL/TCP")
 
 @enduml
 
+@startuml deployment
+title Deployment
 
-@startuml
+node "Application Server" as appServer {
+  artifact "Account Management API" as api
+}
+
+node "Database Server" as dbServer {
+  database "Accounts Database" as db
+}
+
+api --> db : JDBC/TCP
+
+note right of api
+  On startup:
+  Flyway applies database migrations.
+
+  Required environment variables:
+  DB_USERNAME
+  DB_PASSWORD
+
+  Basic authentication is enabled by default.
+end note
+
+@enduml
+
+
+@startuml sequence-open-account
 title Sequence: OpenAccount
 
 actor Customer
@@ -58,7 +84,7 @@ API --> Customer: Account opened,\nAccount location
 @enduml
 
 
-@startuml
+@startuml sequence-close-account
 title Sequence: CloseAccount
 
 actor Customer
@@ -101,7 +127,7 @@ end
 @enduml
 
 
-@startuml
+@startuml sequence-get-balance
 title Sequence: GetBalance
 
 actor Customer
@@ -129,7 +155,7 @@ else Account not found
 end
 @enduml
 
-@startuml
+@startuml sequence-deposit
 title Sequence: Deposit
 
 actor Customer
@@ -174,7 +200,7 @@ end
 @enduml
 
 
-@startuml
+@startuml sequence-withdraw
 title Sequence: Withdraw
 
 actor Customer
@@ -220,7 +246,7 @@ end
 @enduml
 
 
-@startuml
+@startuml sequence-transfer
 title Sequence: Transfer
 
 actor Customer
@@ -264,29 +290,3 @@ end
 @enduml
 
 
-
-@startuml
-title Deployment
-
-node "Application Server" as appServer {
-  artifact "Account Management API" as api
-}
-
-node "Database Server" as dbServer {
-  database "Accounts Database" as db
-}
-
-api --> db : JDBC/TCP
-
-note right of api
-  On startup:
-  Flyway applies database migrations.
-
-  Required environment variables:
-  DB_USERNAME
-  DB_PASSWORD
-
-  Basic authentication is enabled by default.
-end note
-
-@enduml

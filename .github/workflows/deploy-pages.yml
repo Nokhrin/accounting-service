@@ -1,0 +1,258 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  render-diagrams:
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render all PlantUML diagrams to SVG
+        run: |
+          docker run --rm \
+            -u $(id -u):$(id -g) \
+            -v ${{ github.workspace }}:/data \
+            -w /data \
+            plantuml/plantuml:1.2026.8 \
+            -tsvg docs/*.puml
+
+      - name: Upload diagrams artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagrams
+          path: docs/*.svg
+          if-no-files-found: error
+
+  python-tests:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: tests/accounting-api-tests
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: tests/accounting-api-tests/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip pip-tools
+          pip-sync requirements.txt
+
+      - name: Ruff check
+        run: ruff check test
+
+      - name: Ruff format check
+        run: ruff format --check test
+
+      - name: Generate ephemeral dev database password
+        working-directory: .
+        run: |
+          echo "DEV_POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Start application and dev database
+        working-directory: .
+        env:
+          DEV_POSTGRES_DB: ${{ vars.DEV_POSTGRES_DB || 'accounting_dev_db' }}
+          DEV_POSTGRES_USER: ${{ vars.DEV_POSTGRES_USER || 'dev' }}
+          DEV_POSTGRES_PASSWORD: ${{ env.DEV_POSTGRES_PASSWORD }}
+        run: docker compose -f compose.dev.yml up -d --build accounting-service
+
+      - name: Wait for application health
+        working-directory: .
+        run: |
+          for i in {1..30}; do
+            if curl -fs http://localhost:8080/actuator/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Run pytest
+        env:
+          ACCOUNTING_API_TESTS_BASE_URL: http://localhost:8080
+          ACCOUNTING_API_TESTS_TIMEOUT_SECONDS: "10"
+        run: python -m pytest -m smoke -v
+
+      - name: Capture Docker logs
+        if: always()
+        working-directory: .
+        env:
+          DEV_POSTGRES_DB: ${{ vars.DEV_POSTGRES_DB || 'accounting_dev_db' }}
+          DEV_POSTGRES_USER: ${{ vars.DEV_POSTGRES_USER || 'dev' }}
+          DEV_POSTGRES_PASSWORD: ${{ env.DEV_POSTGRES_PASSWORD }}
+        run: |
+          docker compose -f compose.dev.yml logs --no-color > docker.log || true
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results
+          path: tests/accounting-api-tests/allure-results
+          if-no-files-found: ignore
+
+      - name: Upload Docker logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-logs
+          path: docker.log
+          if-no-files-found: ignore
+
+  deploy:
+    needs: [ render-diagrams, python-tests ]
+    runs-on: ubuntu-26.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download diagrams
+        uses: actions/download-artifact@v4
+        with:
+          name: diagrams
+          path: site/diagrams
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Download Docker logs
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-logs
+          path: site/logs
+
+      - name: Install Allure CLI
+        env:
+          ALLURE_VERSION: ${{ vars.ALLURE_VERSION }}
+        run: |
+          if [ -z "$ALLURE_VERSION" ]; then
+            echo "Repository variable ALLURE_VERSION is not set." >&2
+            exit 1
+          fi
+
+          curl -fsSL \
+            "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz" \
+            | tar -xz -C /tmp
+
+          echo "/tmp/allure-${ALLURE_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp site/diagrams/*.svg site/ 2>/dev/null || true
+
+      - name: Generate Allure report
+        run: |
+          mkdir -p site/allure
+
+          if compgen -G "allure-results/*" > /dev/null; then
+            allure generate allure-results -o site/allure --clean
+          else
+            cat > site/allure/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <body>
+            <h1>Allure report</h1>
+            <p>No Allure results were produced by this run.</p>
+          </body>
+          </html>
+          HTML
+          fi
+
+      - name: Generate index.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import html
+
+          site = Path("site")
+          svgs = sorted(site.glob("*.svg"))
+
+          parts = []
+          parts.append("""<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Accounting Service Reports</title>
+            <style>
+              body { font-family: system-ui, sans-serif; margin: 2rem; }
+              .diagram { border: 1px solid #ddd; padding: 1rem; margin: 1rem 0; }
+              img { max-width: 100%; height: auto; }
+              ul { line-height: 1.6; }
+            </style>
+          </head>
+          <body>
+          <h1>Accounting Service Reports</h1>
+          """)
+
+          if svgs:
+              parts.append("<ul>\n")
+              for svg in svgs:
+                  name = html.escape(svg.name)
+                  stem = html.escape(svg.stem)
+                  parts.append(f'  <li><a href="#{stem}">{name}</a></li>\n')
+              parts.append("</ul>\n")
+
+              for svg in svgs:
+                  name = html.escape(svg.name)
+                  stem = html.escape(svg.stem)
+                  parts.append(
+                      f'<div class="diagram" id="{stem}">\n'
+                      f'  <h2>{stem}</h2>\n'
+                      f'  <img src="{name}" alt="{stem}">\n'
+                      f'  <p><a href="{name}" download>Download SVG</a></p>\n'
+                      f'</div>\n'
+                  )
+          else:
+              parts.append("<p>No SVG diagrams found.</p>\n")
+
+          parts.append("""<h2>Reports</h2>
+          <ul>
+            <li><a href="allure/index.html">Allure report</a></li>
+            <li><a href="logs/docker.log">Docker logs</a></li>
+          </ul>
+          </body>
+          </html>
+          """)
+
+          site.joinpath("index.html").write_text("".join(parts), encoding="utf-8")
+          PY
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

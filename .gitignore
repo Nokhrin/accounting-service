@@ -1,7 +1,16 @@
+# .gitignore
 .env
 .idea/
 *.iml
 target/
+
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+
 allure-results/
+allure-report/
 .jqwik-database
 test_db.mv.db

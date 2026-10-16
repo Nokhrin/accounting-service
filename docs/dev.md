@@ -155,7 +155,7 @@ docker compose logs -f accounting-service
 docker compose logs -f accounting-dev-db
 ```
 
-### Очистка
+### Завершение работы
 
 ```shell
 # Остановить все сервисы
@@ -181,6 +181,23 @@ docker system prune -a --volumes
 
 
 ---
+
+# Автотестирование
+
+Выполнение python тестов
+```shell
+python3.14 -m venv .venv
+source .venv/bin/activate
+#python -V
+python -m pip install --upgrade pip pip-tools
+pip-sync requirements.txt
+pytest -m smoke -v
+```
+
+
+---
+
+# FAQ
 
 ## Особенности openSUSE
 
