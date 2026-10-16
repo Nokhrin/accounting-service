@@ -30,6 +30,7 @@ jobs:
       - name: Render PlantUML to SVG
         run: |
           docker run --rm \
+            -u $(id -u):$(id -g) \
             -v ${{ github.workspace }}:/data \
             -w /data \
             plantuml/plantuml:1.2026.8 \
@@ -44,6 +45,7 @@ jobs:
           path: ./docs
 
   deploy:
+    if: github.ref == 'refs/head/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
