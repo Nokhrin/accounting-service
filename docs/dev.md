@@ -1,13 +1,13 @@
-## Локальная разработка
+# Локальная разработка
 
-### Предварительные требования
+## Предварительные требования
 
 - Docker 20.10+
 - Docker Compose 2.0+
-- Java 25 (для локального запуска без Docker)
-- Maven 3.9+ (для локальной сборки)
+- Java 25
+- Maven 3.9+
 
-### Быстрый старт
+## Быстрый старт
 
 ```shell
 # 1. Клонировать репозиторий
@@ -34,7 +34,25 @@ curl -v http://localhost:8080/actuator/health
 docker compose logs accounting-service
 ```
 
-### Подключение к базам данных
+## Перед коммитом
+
+Проверить сборку
+```shell
+make install
+make check-python
+make test
+make render-diagrams
+```
+
+Проверить compose
+```shell
+set -a; source .env; set +a
+docker compose -f compose.dev.yml config --quiet
+```
+
+---
+
+## Подключение к базам данных
 
 | Окружение | Порт | База данных           | Пользователь | Пароль    |
 |-----------|------|-----------------------|--------------|-----------|
@@ -200,6 +218,12 @@ pytest -m smoke -v
 # FAQ
 
 ## Особенности openSUSE
+
+### Доступ к volume
+Добавлять `:Z`
+```shell
+docker run --rm   -u "$(id -u):$(id -g)"   -v "$PWD:/data:Z"   -w /data   plantuml/plantuml:1.2026.8   -tsvg docs/architecture.puml
+```
 
 ### Проблема: "Failed to mark memory page as executable"
 

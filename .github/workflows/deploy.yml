@@ -1,0 +1,207 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  render-diagrams:
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render all PlantUML diagrams to SVG
+        run: |
+          docker run --rm \
+            -u $(id -u):$(id -g) \
+            -v ${{ github.workspace }}:/data \
+            -w /data \
+            plantuml/plantuml:1.2026.8 \
+            -tsvg docs/*.puml
+
+      - name: Upload diagrams artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagrams
+          path: docs/*.svg
+          if-no-files-found: error
+
+  python-tests:
+    uses: ./.github/workflows/python-api-tests.yml
+    permissions:
+      contents: read
+
+  java-ci:
+    uses: ./.github/workflows/ci-java.yml
+    permissions:
+      contents: read
+
+  deploy:
+    needs: [ render-diagrams, python-tests, java-ci ]
+    runs-on: ubuntu-26.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download diagrams
+        uses: actions/download-artifact@v8
+        with:
+          name: diagrams
+          path: site/diagrams
+
+      - name: Download Allure results
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Download Docker logs
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: docker-logs
+          path: site/logs
+
+      - name: Detect Allure results
+        id: allure
+        run: |
+          if [ -d allure-results ] && find allure-results -mindepth 1 -type f -print -quit | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Allure CLI
+        if: steps.allure.outputs.present == 'true'
+        env:
+          ALLURE_VERSION: ${{ vars.ALLURE_VERSION }}
+        run: |
+          if [ -z "$ALLURE_VERSION" ]; then
+            echo "Repository variable ALLURE_VERSION is required when Allure results are present." >&2
+            exit 1
+          fi
+          
+          curl -fsSL \
+            "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz" \
+            | tar -xz -C /tmp
+          
+          echo "/tmp/allure-${ALLURE_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp site/diagrams/*.svg site/ 2>/dev/null || true
+
+      - name: Generate Allure report
+        if: steps.allure.outputs.present == 'true'
+        run: |
+          mkdir -p site/allure
+          allure generate allure-results -o site/allure --clean
+
+      - name: Generate placeholder Allure page
+        if: steps.allure.outputs.present != 'true'
+        run: |
+          mkdir -p site/allure
+          cat > site/allure/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <body>
+            <h1>Allure report</h1>
+            <p>No Allure results were produced by this run.</p>
+          </body>
+          </html>
+          HTML
+
+      - name: Generate index.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import html
+          
+          site = Path("site")
+          svgs = sorted(site.glob("*.svg"))
+          
+          parts = []
+          
+          parts.append(
+              "<!doctype html>\n"
+              "<html lang=\"en\">\n"
+              "<head>\n"
+              "  <meta charset=\"utf-8\">\n"
+              "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+              "  <title>Accounting Service Reports</title>\n"
+              "  <style>\n"
+              "    body { font-family: system-ui, sans-serif; margin: 2rem; }\n"
+              "    nav, section { margin-bottom: 2rem; }\n"
+              "    .diagram { border: 1px solid #ddd; padding: 1rem; margin: 1rem 0; }\n"
+              "    img { max-width: 100%; height: auto; }\n"
+              "    ul { line-height: 1.6; }\n"
+              "  </style>\n"
+              "</head>\n"
+              "<body>\n"
+              "<h1>Accounting Service Reports</h1>\n"
+          )
+          
+          parts.append(
+              "<nav aria-label=\"Reports\">\n"
+              "<ul>\n"
+              "  <li><a href=\"allure/index.html\">Allure report</a></li>\n"
+              "  <li><a href=\"logs/docker.log\">Docker logs</a></li>\n"
+              "</ul>\n"
+              "</nav>\n"
+          )
+          
+          parts.append("<section aria-label=\"Diagrams\">\n<h2>Diagrams</h2>\n")
+          
+          if svgs:
+              parts.append("<ul>\n")
+              for svg in svgs:
+                  name = html.escape(svg.name)
+                  stem = html.escape(svg.stem)
+                  parts.append(f"  <li><a href=\"#{stem}\">{name}</a></li>\n")
+              parts.append("</ul>\n")
+          
+              for svg in svgs:
+                  name = html.escape(svg.name)
+                  stem = html.escape(svg.stem)
+                  parts.append(
+                      f"<div class=\"diagram\" id=\"{stem}\">\n"
+                      f"  <h2>{stem}</h2>\n"
+                      f"  <img src=\"{name}\" alt=\"{stem}\">\n"
+                      f"  <p><a href=\"{name}\" download>Download SVG</a></p>\n"
+                      f"</div>\n"
+                  )
+          else:
+              parts.append("<p>No SVG diagrams found.</p>\n")
+          
+          parts.append("</section>\n</body>\n</html>\n")
+          
+          site.joinpath("index.html").write_text("".join(parts), encoding="utf-8")
+          PY
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
