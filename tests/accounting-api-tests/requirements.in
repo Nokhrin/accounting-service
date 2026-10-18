@@ -1,6 +1,9 @@
+# tests/accounting-api-tests/requirements.in
 pytest
 allure-pytest
 httpx
 pydantic
 pydantic-settings
+psycopg[binary]
 ruff
+mypy

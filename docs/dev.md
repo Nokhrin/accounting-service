@@ -1,5 +1,6 @@
-# Локальная разработка
+# Разработка
 
+# Приложение
 ## Предварительные требования
 
 - Docker 20.10+
@@ -32,7 +33,21 @@ curl -v http://localhost:8080/actuator/health
 # Ожидаемый ответ: {"status":"UP"}
 
 docker compose logs accounting-service
+
 ```
+
+Лог контейнера
+```shell
+docker compose -f /home/nohal/projects/accounting-service/docker-compose.yml logs --tail=200 accounting-service
+```
+
+Пересобрать контейнер после изменения .env
+```shell
+docker compose down -v --remove-orphans
+docker compose up -d --build
+```
+
+
 
 ## Перед коммитом
 
@@ -47,7 +62,7 @@ make render-diagrams
 Проверить compose
 ```shell
 set -a; source .env; set +a
-docker compose -f compose.dev.yml config --quiet
+docker compose -f docker-compose.yml config --quiet
 ```
 
 ---
@@ -200,18 +215,33 @@ docker system prune -a --volumes
 
 ---
 
-# Автотестирование
+# Автотесты
 
-Выполнение python тестов
+## Установка окружения
 ```shell
+cd tests/accounting-api-tests
 python3.14 -m venv .venv
 source .venv/bin/activate
-#python -V
 python -m pip install --upgrade pip pip-tools
 pip-sync requirements.txt
-pytest -m smoke -v
 ```
 
+## Выполнение тестов
+
+
+```shell
+# Запуск всех тестов
+pytest -v
+# Запуск smoke-тестов
+pytest -m smoke -v
+# Запуск интеграционных тестов
+pytest -m integration -v
+
+# Проверка линтеров и типов
+ruff check
+ruff format --check
+mypy
+```
 
 ---
 

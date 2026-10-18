@@ -1,0 +1,37 @@
+# docker-compose.yml
+services:
+  accounting-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_SECURITY_USER_NAME: ${TEST_USERNAME:-user}
+      SPRING_SECURITY_USER_PASSWORD: ${TEST_PASSWORD:?set TEST_PASSWORD}
+      DB_URL: jdbc:postgresql://accounting-dev-db:5432/${DEV_DB:?set DEV_DB}
+      DB_USERNAME: ${DEV_USER:?set DEV_USER}
+      DB_PASSWORD: ${DEV_PASSWORD:?set DEV_PASSWORD}
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-8080}:8080"
+    depends_on:
+      accounting-dev-db:
+        condition: service_healthy
+
+  accounting-dev-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DEV_DB:?set DEV_DB}
+      POSTGRES_USER: ${DEV_USER:?set DEV_USER}
+      POSTGRES_PASSWORD: ${DEV_PASSWORD:?set DEV_PASSWORD}
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dev-data:

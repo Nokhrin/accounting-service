@@ -1,4 +1,5 @@
-name: Deploy Pages
+# .github/workflows/deploy-artifacts.yml
+name: Deploy Allure Report, Docker Log, Documentation
 
 on:
   push:
@@ -9,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: pages
@@ -38,17 +40,12 @@ jobs:
           if-no-files-found: error
 
   python-tests:
-    uses: ./.github/workflows/python-api-tests.yml
-    permissions:
-      contents: read
-
-  java-ci:
-    uses: ./.github/workflows/ci-java.yml
+    uses: ./.github/workflows/ci-python.yml
     permissions:
       contents: read
 
   deploy:
-    needs: [ render-diagrams, python-tests, java-ci ]
+    needs: [ render-diagrams, python-tests ]
     runs-on: ubuntu-26.04
     environment:
       name: github-pages
@@ -95,11 +92,11 @@ jobs:
             echo "Repository variable ALLURE_VERSION is required when Allure results are present." >&2
             exit 1
           fi
-          
+
           curl -fsSL \
             "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz" \
             | tar -xz -C /tmp
-          
+
           echo "/tmp/allure-${ALLURE_VERSION}/bin" >> "$GITHUB_PATH"
 
       - name: Assemble site
@@ -132,12 +129,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import html
-          
+
           site = Path("site")
           svgs = sorted(site.glob("*.svg"))
-          
+
           parts = []
-          
+
           parts.append(
               "<!doctype html>\n"
               "<html lang=\"en\">\n"
@@ -156,7 +153,7 @@ jobs:
               "<body>\n"
               "<h1>Accounting Service Reports</h1>\n"
           )
-          
+
           parts.append(
               "<nav aria-label=\"Reports\">\n"
               "<ul>\n"
@@ -165,9 +162,9 @@ jobs:
               "</ul>\n"
               "</nav>\n"
           )
-          
+
           parts.append("<section aria-label=\"Diagrams\">\n<h2>Diagrams</h2>\n")
-          
+
           if svgs:
               parts.append("<ul>\n")
               for svg in svgs:
@@ -175,7 +172,7 @@ jobs:
                   stem = html.escape(svg.stem)
                   parts.append(f"  <li><a href=\"#{stem}\">{name}</a></li>\n")
               parts.append("</ul>\n")
-          
+
               for svg in svgs:
                   name = html.escape(svg.name)
                   stem = html.escape(svg.stem)
@@ -188,9 +185,9 @@ jobs:
                   )
           else:
               parts.append("<p>No SVG diagrams found.</p>\n")
-          
+
           parts.append("</section>\n</body>\n</html>\n")
-          
+
           site.joinpath("index.html").write_text("".join(parts), encoding="utf-8")
           PY
 

@@ -1,41 +1,45 @@
 # Makefile
-VENV ?= tests/accounting-api-tests/.venv
-RUFF := $(VENV)/bin/ruff
-PYTEST := $(VENV)/bin/pytest
-PIP_SYNC := $(VENV)/bin/pip-sync
+MODULE_DIR := tests/accounting-api-tests
+VENV := $(MODULE_DIR)/.venv
 
-.PHONY: env install fix check check-python check-java test
+PYTHON := $(CURDIR)/$(VENV)/bin/python
+RUFF := $(CURDIR)/$(VENV)/bin/ruff
+MYPY := $(CURDIR)/$(VENV)/bin/mypy
+PIP_SYNC := $(CURDIR)/$(VENV)/bin/pip-sync
 
-env:
-	@printf 'PROD_POSTGRES_DB=accounting_prod_db\n' > .env
-	@printf 'PROD_POSTGRES_USER=accounting\n' >> .env
-	@printf 'PROD_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
-	@printf 'DEV_POSTGRES_DB=accounting_dev_db\n' >> .env
-	@printf 'DEV_POSTGRES_USER=dev\n' >> .env
-	@printf 'DEV_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
-	@printf 'LOCAL_POSTGRES_DB=accounting_local_db\n' >> .env
-	@printf 'LOCAL_POSTGRES_USER=local\n' >> .env
-	@printf 'LOCAL_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
+COMPOSE_DEV ?= docker-compose.yml
 
-install:
-	$(VENV)/bin/python -m pip install --upgrade pip pip-tools
-	$(PIP_SYNC) requirements.txt
+.PHONY: venv install fix check check-python check-java test-rest up down
+
+venv:
+	@test -d $(VENV) || python3.14 -m venv $(VENV)
+
+install: venv
+	$(PYTHON) -m pip install --upgrade pip pip-tools
+	cd $(MODULE_DIR) && $(PIP_SYNC) requirements.txt
 
 fix:
-	$(RUFF) check --fix test
-	$(RUFF) format test
-
-test:
-	$(PYTEST) -m smoke -v
+	cd $(MODULE_DIR) && $(RUFF) check --fix
+	cd $(MODULE_DIR) && $(RUFF) format
 
 check-python:
-	$(RUFF) check test
-	$(RUFF) format --check test
-	$(VENV)/bin/mypy test
+	cd $(MODULE_DIR) && $(RUFF) check
+	cd $(MODULE_DIR) && $(RUFF) format --check
+	cd $(MODULE_DIR) && $(MYPY)
 
 check-java:
-	mvn spotless:check checkstyle:check compile
+	mvn -B -ntp verify
 
-check:
-	$(MAKE) check-python
-	$(MAKE) check-java
+check-all: check-python check-java
+
+test-rest:
+	@test -f .env || { echo "Run: make env"; exit 1; }
+	@set -a; . ./.env; set +a; \
+	cd $(MODULE_DIR) && $(PYTHON) -m pytest -m "api or db" -v
+
+up:
+	@test -f .env || { echo "Run: make env"; exit 1; }
+	docker compose -f $(COMPOSE_DEV) --env-file .env up -d --build accounting-service
+
+down:
+	docker compose -f $(COMPOSE_DEV) --env-file .env down
