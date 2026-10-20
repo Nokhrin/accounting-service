@@ -4,13 +4,13 @@ info:
   version: 0.0.1
 
 security:
-  - basicAuth: []
+  - basicAuth: [ ]
 
 paths:
   /accounts:
     post:
       operationId: openAccount
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Open new account
       requestBody:
         required: true
@@ -20,7 +20,7 @@ paths:
               $ref: '#/components/schemas/OpenAccountRequest'
       responses:
         '201':
-          description: Account opened
+          description: AccountResponse opened
           headers:
             Location:
               description: URL of the newly created account
@@ -30,7 +30,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Account'
+                $ref: '#/components/schemas/AccountResponse'
         '400':
           description: Validation error (malformed UUID, negative initialBalance, empty displayName)
           content:
@@ -38,13 +38,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /accounts/{id}:
+  /accounts/{accountId}:
     get:
       operationId: getAccount
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Get account
       parameters:
-        - name: id
+        - name: accountId
           in: path
           required: true
           schema:
@@ -56,21 +56,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Account'
+                $ref: '#/components/schemas/AccountResponse'
         '404':
-          description: Account not found
+          description: AccountResponse not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /accounts/{id}/close:
+  /accounts/{accountId}/close:
     post:
       operationId: closeAccount
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Close account
       parameters:
-        - name: id
+        - name: accountId
           in: path
           required: true
           schema:
@@ -78,11 +78,11 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Account closed
+          description: AccountResponse closed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Account'
+                $ref: '#/components/schemas/AccountResponse'
         '400':
           description: Malformed UUID
           content:
@@ -90,7 +90,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Account not found
+          description: AccountResponse not found
           content:
             application/json:
               schema:
@@ -105,15 +105,15 @@ paths:
                   - type: object
                     properties:
                       code:
-                        enum: [BALANCE_NOT_ZERO, ACCOUNT_NOT_ACTIVE]
+                        enum: [ BALANCE_NOT_ZERO, ACCOUNT_NOT_ACTIVE ]
 
-  /accounts/{targetId}/deposit:
+  /accounts/{targetAccountId}/deposit:
     post:
       operationId: deposit
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Deposit funds
       parameters:
-        - name: targetId
+        - name: targetAccountId
           in: path
           required: true
           schema:
@@ -131,7 +131,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperationResponse'
+                $ref: '#/components/schemas/DepositResponse'
         '400':
           description: Validation error (amount < 0.01, malformed UUID)
           content:
@@ -139,7 +139,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Account not found
+          description: AccountResponse not found
           content:
             application/json:
               schema:
@@ -154,15 +154,15 @@ paths:
                   - type: object
                     properties:
                       code:
-                        enum: [ACCOUNT_NOT_ACTIVE]
+                        enum: [ ACCOUNT_NOT_ACTIVE ]
 
-  /accounts/{sourceId}/withdraw:
+  /accounts/{sourceAccountId}/withdraw:
     post:
       operationId: withdraw
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Withdraw funds
       parameters:
-        - name: sourceId
+        - name: sourceAccountId
           in: path
           required: true
           schema:
@@ -180,7 +180,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OperationResponse'
+                $ref: '#/components/schemas/WithdrawalResponse'
         '400':
           description: Validation error (amount < 0.01, malformed UUID)
           content:
@@ -188,7 +188,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Account not found
+          description: AccountResponse not found
           content:
             application/json:
               schema:
@@ -203,21 +203,21 @@ paths:
                   - type: object
                     properties:
                       code:
-                        enum: [INSUFFICIENT_FUNDS, ACCOUNT_NOT_ACTIVE]
+                        enum: [ INSUFFICIENT_FUNDS, ACCOUNT_NOT_ACTIVE ]
 
-  /accounts/{sourceId}/{targetId}/transfer:
+  /accounts/{sourceAccountId}/{targetAccountId}/transfer:
     post:
       operationId: transfer
-      tags: [accounts]
+      tags: [ accounts ]
       summary: Transfer funds
       parameters:
-        - name: sourceId
+        - name: sourceAccountId
           in: path
           required: true
           schema:
             type: string
             format: uuid
-        - name: targetId
+        - name: targetAccountId
           in: path
           required: true
           schema:
@@ -258,7 +258,7 @@ paths:
                   - type: object
                     properties:
                       code:
-                        enum: [INSUFFICIENT_FUNDS, SOURCE_NOT_ACTIVE, TARGET_NOT_ACTIVE, SAME_ACCOUNT]
+                        enum: [ INSUFFICIENT_FUNDS, SOURCE_NOT_ACTIVE, TARGET_NOT_ACTIVE, SAME_ACCOUNT ]
 components:
   securitySchemes:
     basicAuth:
@@ -287,8 +287,20 @@ components:
 
     AccountHolderRequest:
       type: object
-      required: [displayName]
+      required: [ displayName ]
       properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    AccountHolderResponse:
+      type: object
+      required: [ id, displayName ]
+      properties:
+        id:
+          type: string
+          format: uuid
         displayName:
           type: string
           minLength: 1
@@ -296,7 +308,7 @@ components:
 
     OpenAccountRequest:
       type: object
-      required: [initialBalance, holder]
+      required: [ initialBalance, holder ]
       properties:
         operationId:
           type: string
@@ -310,7 +322,7 @@ components:
 
     AmountRequest:
       type: object
-      required: [amount]
+      required: [ amount ]
       properties:
         operationId:
           type: string
@@ -320,7 +332,14 @@ components:
           minimum: 0.01
           multipleOf: 0.01
 
-    Account:
+    AccountStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - BLOCKED
+        - CLOSED
+
+    AccountResponse:
       type: object
       required: [ id, balance, status, holder ]
       properties:
@@ -331,11 +350,12 @@ components:
           type: number
           minimum: 0
           multipleOf: 0.01
+          example: 1250.50
+          description: Balance in the account's currency
         status:
-          type: string
-          enum: [ ACTIVE, BLOCKED, CLOSED ]
+          $ref: '#/components/schemas/AccountStatus'
         holder:
-          $ref: '#/components/schemas/AccountHolder'
+          $ref: '#/components/schemas/AccountHolderResponse'
 
     AccountHolder:
       type: object
@@ -347,7 +367,7 @@ components:
         displayName:
           type: string
 
-    OperationResponse:
+    DepositResponse:
       type: object
       required: [ operationId, account ]
       properties:
@@ -355,7 +375,17 @@ components:
           type: string
           format: uuid
         account:
-          $ref: '#/components/schemas/Account'
+          $ref: '#/components/schemas/AccountResponse'
+
+    WithdrawalResponse:
+      type: object
+      required: [ operationId, account ]
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        account:
+          $ref: '#/components/schemas/AccountResponse'
 
     TransferResponse:
       type: object
@@ -365,6 +395,6 @@ components:
           type: string
           format: uuid
         sourceAccount:
-          $ref: '#/components/schemas/Account'
+          $ref: '#/components/schemas/AccountResponse'
         targetAccount:
-          $ref: '#/components/schemas/Account'
+          $ref: '#/components/schemas/AccountResponse'

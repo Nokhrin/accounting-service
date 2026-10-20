@@ -1,7 +1,7 @@
 package com.nokhrin.accounting.domain.operation;
 
 import com.nokhrin.accounting.domain.account.Account;
-import com.nokhrin.accounting.domain.account.AccountNotOperableException;
+import com.nokhrin.accounting.domain.account.AccountNotActiveException;
 import com.nokhrin.accounting.domain.account.AccountStatus;
 
 import java.math.BigDecimal;
@@ -17,7 +17,7 @@ public record Deposit(
             throw new InvalidAmountException("Amount must be positive", operationId, amount);
         }
         if (targetAccount.status() != AccountStatus.ACTIVE) {
-            throw new AccountNotOperableException(targetAccount, getClass().getSimpleName());
+            throw new AccountNotActiveException(targetAccount.id(), targetAccount.status());
         }
     }
 

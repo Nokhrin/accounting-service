@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AccountPropTest {
     @Provide
-    Arbitrary<BigDecimal> nonNegativeBigDecimal(){
+    Arbitrary<BigDecimal> nonNegativeBigDecimal() {
         return Arbitraries.bigDecimals()
                 .between(BigDecimal.ZERO, new BigDecimal("1000000000000.00"))
                 .ofScale(2);
@@ -59,16 +59,16 @@ class AccountPropTest {
     @Property
     void closeZeroBalanceAllowed(
             @ForAll BigDecimal balance
-    ){
+    ) {
         assumeTrue(balance.compareTo(BigDecimal.ZERO) > 0);
         Account account = Account.open(balance, HOLDER);
-        assertThrows(IllegalStateException.class, account::close);
+        assertThrows(BalanceNotZeroException.class, account::close);
     }
 
     @Property
     void activateBlockedAllowed(
             @ForAll @From("nonNegativeBigDecimal") BigDecimal balance
-    ){
+    ) {
         Account account = Account.open(balance, HOLDER);
         assertThrows(IllegalStateException.class, account::activate);
     }

@@ -9,6 +9,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  logging:
-    level:
-      org.springframework.security: DEBUG
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG

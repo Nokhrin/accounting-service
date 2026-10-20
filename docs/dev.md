@@ -15,11 +15,7 @@
 git clone https://github.com/Nokhrin/accounting-service.git
 cd accounting-service
 
-# 2. Подготовить .env файл
-cp .env.example .env
-# Сгенерировать пароли:
-openssl rand -hex 32
-# Вставить сгенерированные значения в .env
+# 2. Подготовить .env файл по .env.example
 
 # 3. Поднять инфраструктуру и приложение одной командой
 docker compose up -d --build
@@ -174,8 +170,7 @@ docker compose --env-file .env up -d --build --force-recreate accounting-service
 docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db
 
 # Выполнить SQL запрос
-docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db \
-  -c "SELECT  FROM accounts;"
+docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db -c "SELECT  FROM accounts;"
 
 # Сделать дамп базы данных
 docker compose exec accounting-dev-db pg_dump -U dev accounting_dev_db > backup.sql
@@ -254,7 +249,7 @@ mypy
 ### Доступ к volume
 Добавлять `:Z`
 ```shell
-docker run --rm   -u "$(id -u):$(id -g)"   -v "$PWD:/data:Z"   -w /data   plantuml/plantuml:1.2026.8   -tsvg docs/architecture.puml
+docker run --rm   -u "$(operationId -u):$(operationId -g)"   -v "$PWD:/data:Z"   -w /data   plantuml/plantuml:1.2026.8   -tsvg docs/architecture.puml
 ```
 
 ### Проблема: "Failed to mark memory page as executable"
