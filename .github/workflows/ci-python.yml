@@ -1,5 +1,5 @@
 # .github/workflows/ci-python.yml
-name: CI Python - run API tests
+name: CI Python - Run API Tests
 
 on:
   workflow_call:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  api_tests:
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -48,16 +48,18 @@ jobs:
       - name: Start application and dev database
         working-directory: .
         env:
-          DEV_DB: ${{ vars.DEV_DB || 'accounting_dev_db' }}
-          DEV_USER: ${{ vars.DEV_USER || 'dev' }}
+          DEV_DB: ${{ vars.DEV_DB }}
+          DEV_USER: ${{ vars.DEV_USER }}
           DEV_PASSWORD: ${{ env.DEV_PASSWORD }}
+          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
         run: docker compose -f docker-compose.yml up -d --build accounting-service
 
       - name: Wait for application health
         working-directory: .
         run: |
           for i in {1..30}; do
-            if curl -fs http://localhost:8080/actuator/health; then
+            if curl -fs http://127.0.0.1:8080/actuator/health; then
               exit 0
             fi
             sleep 2
@@ -66,14 +68,16 @@ jobs:
 
       - name: Run pytest
         env:
-          TEST_BASE_URL: http://localhost:8080
-          TEST_TIMEOUT_SECONDS: "10"
-          TEST_DB_HOST: 127.0.0.1
-          TEST_DB_PORT: "5433"
-          TEST_DB_NAME: ${{ vars.DEV_DB || 'accounting_dev_db' }}
-          TEST_DB_USER: ${{ vars.DEV_USER || 'dev' }}
+          TEST_BASE_URL: ${{ vars.TEST_BASE_URL }}
+          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+          TEST_TIMEOUT_SECONDS: ${{ vars.TEST_TIMEOUT_SECONDS }}
+          TEST_DB_HOST: ${{ vars.TEST_DB_HOST }}
+          TEST_DB_PORT: ${{ vars.TEST_DB_PORT }}
+          TEST_DB_NAME: ${{ vars.DEV_DB }}
+          TEST_DB_USER: ${{ vars.DEV_USER }}
           TEST_DB_PASSWORD: ${{ env.DEV_PASSWORD }}
-        run: python -m pytest -m smoke -v
+        run: python -m pytest -m "smoke" -v
 
       - name: Capture Docker logs
         if: always()

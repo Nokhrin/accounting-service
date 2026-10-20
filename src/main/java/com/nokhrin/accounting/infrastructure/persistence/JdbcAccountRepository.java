@@ -21,6 +21,19 @@ public class JdbcAccountRepository implements AccountRepository {
         this.dataSource = dataSource;
     }
 
+    private static final String SELECT_BY_ID = """
+            SELECT id, balance, status, holder_id, holder_display_name
+            FROM public.accounts
+            WHERE id = ?
+            """;
+
+    private static final String SELECT_BY_ID_FOR_UPDATE = """
+            SELECT id, balance, status, holder_id, holder_display_name
+            FROM public.accounts
+            WHERE id = ?
+            FOR UPDATE
+            """;
+
     @Override
     public void create(Account account) {
         String createAccountQuery = """
@@ -41,8 +54,8 @@ public class JdbcAccountRepository implements AccountRepository {
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to Create account", e);
-        }finally {
-            DataSourceUtils.releaseConnection(connection,dataSource);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
         }
 
     }
@@ -67,35 +80,21 @@ public class JdbcAccountRepository implements AccountRepository {
                 throw new IllegalArgumentException("Update failed, did not find account " + account.id());
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Account update failed", e);
-        }finally {
-            DataSourceUtils.releaseConnection(connection,dataSource);
+            throw new RuntimeException("AccountResponse update failed", e);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
         }
     }
 
     @Override
-    public Optional<Account> findById(UUID accountId) {
-        String selectByIdQuery = """
-                SELECT id, balance, status, holder_id, holder_display_name
-                FROM public.accounts where id = ?;
-                """;
+    public Optional<Account> findByIdForUpdate(UUID accountId) {
+        return select(accountId, SELECT_BY_ID_FOR_UPDATE);
+    }
 
-        Connection connection = DataSourceUtils.getConnection(dataSource);
-        try (
-                PreparedStatement preparedStatement = connection.prepareStatement(selectByIdQuery)
-        ) {
-            preparedStatement.setObject(1, accountId);
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    return Optional.of(mapToDomain(resultSet));
-                }
-                return Optional.empty();
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find account by id: " + accountId, e);
-        }finally {
-            DataSourceUtils.releaseConnection(connection,dataSource);
-        }
+    @Override
+    public Optional<Account> findById(UUID accountId) {
+        return select(accountId, SELECT_BY_ID);
+
     }
 
     private Account mapToDomain(ResultSet resultSet) {
@@ -110,7 +109,26 @@ public class JdbcAccountRepository implements AccountRepository {
                     )
             );
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to map DB response to Account", e);
+            throw new RuntimeException("Failed to map DB response to AccountResponse", e);
+        }
+    }
+
+    private Optional<Account> select(UUID accountId, String query) {
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try (
+                PreparedStatement preparedStatement = connection.prepareStatement(query)
+        ) {
+            preparedStatement.setObject(1, accountId);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.of(mapToDomain(resultSet));
+                }
+                return Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find account by id: " + accountId, e);
+        } finally {
+            DataSourceUtils.releaseConnection(connection, dataSource);
         }
     }
 }

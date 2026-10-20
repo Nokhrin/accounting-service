@@ -1,7 +1,5 @@
 package com.nokhrin.accounting.domain.account;
 
-import com.nokhrin.accounting.api.dto.AccountResponse;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -23,7 +21,7 @@ public record Account(
         if (status == null) {
             throw new IllegalArgumentException("Status must not be null");
         }
-        if (holder==null){
+        if (holder == null) {
             throw new IllegalArgumentException("Account holder must not be null");
         }
     }
@@ -41,8 +39,8 @@ public record Account(
     }
 
     public Account block() {
-        if (status == AccountStatus.BLOCKED) {
-            throw new IllegalStateException("Account " + id + " is already blocked");
+        if (status != AccountStatus.ACTIVE) {
+            throw new AccountNotActiveException(id, status);
         }
         return new Account(id, balance, AccountStatus.BLOCKED, holder);
     }
@@ -59,20 +57,12 @@ public record Account(
             throw new IllegalStateException("Account " + id + " is already closed");
         }
         if (status != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Can close active account only. Current status: " + status);
+            throw new AccountNotActiveException(id, status);
         }
         if (balance.compareTo(BigDecimal.ZERO) > 0) {
-            throw new IllegalStateException("Cannot close account with non-zero balance: " + balance);
+            throw new BalanceNotZeroException(id, balance);
         }
         return new Account(id, balance, AccountStatus.CLOSED, holder);
     }
 
-    public AccountResponse toResponse() {
-        return new AccountResponse(
-                this.id(),
-                this.balance(),
-                this.status().name(),
-                this.holder.toResponse()
-        );
-    }
 }

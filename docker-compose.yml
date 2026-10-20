@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      SPRING_SECURITY_USER_NAME: ${TEST_USERNAME:-user}
+      SPRING_SECURITY_USER_NAME: ${TEST_USERNAME:?set TEST_USERNAME}
       SPRING_SECURITY_USER_PASSWORD: ${TEST_PASSWORD:?set TEST_PASSWORD}
       DB_URL: jdbc:postgresql://accounting-dev-db:5432/${DEV_DB:?set DEV_DB}
       DB_USERNAME: ${DEV_USER:?set DEV_USER}
