@@ -9,7 +9,7 @@ from accounting_api_tests.models.operations import AmountRequest
 
 
 @pytest.mark.integration
-def test_deposit_and_db_assertion(account_client: AccountClient):
+def test_deposit_and_db_assertion(account_client: AccountClient) -> None:
     req = open_account_request(initial_balance=Decimal("50.00"))
     acc = account_client.open_account(req)
 

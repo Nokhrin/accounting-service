@@ -1,13 +1,21 @@
+from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 import httpx
 
-from accounting_api_tests.clients.auth import UnAuthClient, build_auth, BasicAuthClient
-from accounting_api_tests.config import Settings, settings as app_settings
+from accounting_api_tests.clients.auth import BasicAuthClient, UnAuthClient, build_auth
+from accounting_api_tests.config import Settings
+from accounting_api_tests.config import settings as app_settings
 from accounting_api_tests.error import ApiError, BadRequestError, ConflictError, ErrorResponse, NotFoundError
 from accounting_api_tests.models.account import AccountRequest, OpenAccountRequest
-from accounting_api_tests.models.operations import AmountRequest, DepositRequest, TransferRequest, TransferResponse, \
-    WithdrawalRequest
+from accounting_api_tests.models.operations import (
+    AmountRequest,
+    DepositRequest,
+    TransferRequest,
+    TransferResponse,
+    WithdrawalRequest,
+)
 
 AuthLike = BasicAuthClient | UnAuthClient | None
 
@@ -31,8 +39,10 @@ class AccountClient:
                 timeout=self.settings.timeout_seconds,
             )
             self._own_client = True
-
-        self.client.auth = self.auth.as_httpx_auth()
+        if isinstance(self.auth, BasicAuthClient):
+            as_httpx_auth = self.auth.as_httpx_auth()
+            if as_httpx_auth is not None:
+                self.client.auth = as_httpx_auth
 
     def close(self) -> None:
         if self._own_client:
@@ -47,12 +57,15 @@ class AccountClient:
         except Exception:
             error = None
 
-        if response.status_code == 404: raise NotFoundError(response, error)
-        if response.status_code == 409: raise ConflictError(response, error)
-        if response.status_code == 400: raise BadRequestError(response, error)
+        if response.status_code == 404:
+            raise NotFoundError(response, error)
+        if response.status_code == 409:
+            raise ConflictError(response, error)
+        if response.status_code == 400:
+            raise BadRequestError(response, error)
         raise ApiError(response, error)
 
-    def _post(self, path: str, json_payload: dict) -> httpx.Response:
+    def _post(self, path: str, json_payload: dict[str, Any]) -> httpx.Response:
         resp = self.client.post(path, json=json_payload)
         return self._handle_response(resp)
 
@@ -62,7 +75,6 @@ class AccountClient:
 
     def open_account(self, request: OpenAccountRequest) -> AccountRequest:
         payload = request.model_dump(mode="json")
-        print(f"[DEBUG PAYLOAD] {payload}")
         resp = self._post("/accounts", payload)
         return AccountRequest.model_validate_json(resp.text)
 
@@ -70,20 +82,28 @@ class AccountClient:
         resp = self._get(f"/accounts/{account_id}")
         return AccountRequest.model_validate_json(resp.text)
 
-    def deposit(self, account_id: UUID, request: DepositRequest | AmountRequest) -> AccountRequest:
-        payload = request.model_dump(mode="json") if hasattr(request, "model_dump") else AmountRequest(
-            amount=request).model_dump(mode="json")
+    def deposit(self, account_id: UUID, request: Decimal | DepositRequest | AmountRequest) -> AccountRequest:
+        if isinstance(request, Decimal):
+            payload = AmountRequest(amount=request).model_dump(mode="json")
+        else:
+            payload = request.model_dump(mode="json")
         resp = self._post(f"/accounts/{account_id}/deposit", payload)
         return AccountRequest.model_validate_json(resp.text)
 
-    def withdraw(self, account_id: UUID, request: WithdrawalRequest | AmountRequest) -> AccountRequest:
-        payload = request.model_dump(mode="json") if hasattr(request, "model_dump") else AmountRequest(
-            amount=request).model_dump(mode="json")
+    def withdraw(self, account_id: UUID, request: Decimal | WithdrawalRequest | AmountRequest) -> AccountRequest:
+        if isinstance(request, Decimal):
+            payload = AmountRequest(amount=request).model_dump(mode="json")
+        else:
+            payload = request.model_dump(mode="json")
         resp = self._post(f"/accounts/{account_id}/withdraw", payload)
         return AccountRequest.model_validate_json(resp.text)
 
-    def transfer(self, source_id: UUID, target_id: UUID, request: TransferRequest | AmountRequest) -> TransferResponse:
-        payload = request.model_dump(mode="json") if hasattr(request, "model_dump") else AmountRequest(
-            amount=request).model_dump(mode="json")
+    def transfer(
+        self, source_id: UUID, target_id: UUID, request: Decimal | TransferRequest | AmountRequest
+    ) -> TransferResponse:
+        if isinstance(request, Decimal):
+            payload = AmountRequest(amount=request).model_dump(mode="json")
+        else:
+            payload = request.model_dump(mode="json")
         resp = self._post(f"/accounts/{source_id}/{target_id}/transfer", payload)
         return TransferResponse.model_validate_json(resp.text)

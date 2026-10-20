@@ -1,6 +1,6 @@
 import json
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Callable
 from uuid import UUID
 
 import httpx

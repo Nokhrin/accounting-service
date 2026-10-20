@@ -140,9 +140,8 @@ curl -s -u "user:$PASSWORD" \
 ```
 
 
-## Команды для разработки
 
-### Запуск тестов
+## Запуск тестов
 
 ```shell
 # Все тесты
@@ -158,7 +157,17 @@ mvn test -Dtest='!IntegrationTest,!RepositoryTest'
 mvn test -Dtest='IntegrationTest,RepositoryTest'
 ```
 
-### Работа с базой данных
+## Docker: принудительная пересборка
+```shell
+docker compose down
+docker compose build --no-cache accounting-service
+docker compose up -d
+# Подождать 20 секунд до полного старта и проверить логи
+docker compose logs -f accounting-service
+```
+docker compose --env-file .env up -d --build --force-recreate accounting-service
+
+## Docker: БД
 
 ```shell
 # Подключиться к БД внутри контейнера
@@ -175,7 +184,7 @@ docker compose exec accounting-dev-db pg_dump -U dev accounting_dev_db > backup.
 cat backup.sql | docker compose exec -T accounting-dev-db psql -U dev -d accounting_dev_db
 ```
 
-### Логи
+## Docker: Логи
 
 ```shell
 # Логи всех сервисов
@@ -188,18 +197,11 @@ docker compose logs -f accounting-service
 docker compose logs -f accounting-dev-db
 ```
 
-### Завершение работы
+## Docker: Завершение работы
 
 ```shell
 # Остановить все сервисы
 docker compose down
-
-# Остановить и удалить volumes (удалит данные БД!)
-docker compose down -v
-
-# Пересобрать образы
-docker compose build --no-cache
-
 # Полная очистка Docker
 docker system prune -a --volumes
 ```

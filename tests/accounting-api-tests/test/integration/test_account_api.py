@@ -8,7 +8,7 @@ from accounting_api_tests.models.account import AccountStatus
 
 
 @pytest.mark.integration
-def test_open_and_get_account(account_client: AccountClient):
+def test_open_and_get_account(account_client: AccountClient) -> None:
     req = open_account_request(initial_balance=Decimal("100.00"), holder_name="Integration Test")
     acc = account_client.open_account(req)
 
