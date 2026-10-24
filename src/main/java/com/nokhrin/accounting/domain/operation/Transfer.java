@@ -1,6 +1,7 @@
 package com.nokhrin.accounting.domain.operation;
 
 import com.nokhrin.accounting.domain.account.Account;
+import com.nokhrin.accounting.domain.account.SameAccountException;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -14,6 +15,9 @@ public record Transfer(
     private void validateOperation() {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidAmountException("Amount must be positive", operationId, amount);
+        }
+        if (sourceAccount.id().equals(targetAccount.id())) {
+            throw new SameAccountException(sourceAccount.id());
         }
     }
 

@@ -1,17 +1,14 @@
-import os
-
 import httpx
 import pytest
 
-BASE_URL = os.getenv("ACCOUNTING_API_TESTS_BASE_URL", "http://localhost:8080")
-TIMEOUT_SECONDS = float(os.getenv("ACCOUNTING_API_TESTS_TIMEOUT_SECONDS", "10"))
+from accounting_api_tests.config import Settings
 
 
 @pytest.mark.smoke
-def test_health_endpoint_responds_up() -> None:
+def test_health_endpoint_responds_up(app_settings: Settings) -> None:
     response = httpx.get(
-        f"{BASE_URL}/actuator/health",
-        timeout=TIMEOUT_SECONDS,
+        f"{app_settings.base_url}/actuator/health",
+        timeout=app_settings.timeout_seconds,
     )
 
     assert response.status_code == 200, f"Expected HTTP 200, got {response.status_code}. Body: {response.text[:500]}"

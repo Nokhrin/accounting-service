@@ -14,15 +14,15 @@
     <properties>
         <java.version>25</java.version>
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+        <dependency-check-maven.version>13.0.0</dependency-check-maven.version>
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <jjwt.version>0.13.0</jjwt.version>
         <testcontainers.version>2.0.5</testcontainers.version>
-        <testcontainers-postgresql.version>1.21.4</testcontainers-postgresql.version>
         <mapstruct.version>1.7.0.Beta1</mapstruct.version>
         <openapi-generator.version>7.22.0</openapi-generator.version>
         <springdoc.version>3.0.3</springdoc.version>
-        <dependency-check-maven.version>12.2.2</dependency-check-maven.version>
         <jqwik.version>1.10.1</jqwik.version>
+        <archunit-junit5.version>1.5.1</archunit-junit5.version>
     </properties>
 
     <dependencies>
@@ -90,7 +90,6 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
-            <version>12.10.0</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -128,20 +127,15 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.owasp</groupId>
-            <artifactId>dependency-check-maven</artifactId>
-            <version>${dependency-check-maven.version}</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-data-jpa-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>net.jqwik</groupId>
             <artifactId>jqwik</artifactId>
             <version>${jqwik.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit-junit5.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -179,6 +173,7 @@
                         <exclude>com/nokhrin/accounting/generated/**</exclude>
                         <exclude>com/nokhrin/accounting/AccountingApp.class</exclude>
                         <exclude>com/nokhrin/accounting/infrastructure/persistence/SeedRunner.class</exclude>
+                        <exclude>com/nokhrin/accounting/api/dto/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -196,6 +191,7 @@
                     </execution>
                     <execution>
                         <id>check</id>
+                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
@@ -206,6 +202,11 @@
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.68</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.62</minimum>
                                         </limit>
@@ -232,13 +233,40 @@
                             <modelPackage>com.nokhrin.accounting.generated.model</modelPackage>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
+                                <skipDefaultInterface>true</skipDefaultInterface>
                                 <useSpringBoot3>true</useSpringBoot3>
                                 <openApiNullable>false</openApiNullable>
+                                <useBeanValidation>true</useBeanValidation>
+                                <performBeanValidation>true</performBeanValidation>
+                                <useTags>true</useTags>
                             </configOptions>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>${dependency-check-maven.version}</version>
+                <configuration>
+                    <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
+                    <failBuildOnCVSS>7</failBuildOnCVSS>
+                    <formats>
+                        <format>HTML</format>
+                        <format>JSON</format>
+                    </formats>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 </project>

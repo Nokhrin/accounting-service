@@ -1,24 +1,21 @@
-## Локальная разработка
+# Разработка
 
-### Предварительные требования
+# Приложение
+## Предварительные требования
 
 - Docker 20.10+
 - Docker Compose 2.0+
-- Java 25 (для локального запуска без Docker)
-- Maven 3.9+ (для локальной сборки)
+- Java 25
+- Maven 3.9+
 
-### Быстрый старт
+## Быстрый старт
 
 ```shell
 # 1. Клонировать репозиторий
 git clone https://github.com/Nokhrin/accounting-service.git
 cd accounting-service
 
-# 2. Подготовить .env файл
-cp .env.example .env
-# Сгенерировать пароли:
-openssl rand -hex 32
-# Вставить сгенерированные значения в .env
+# 2. Подготовить .env файл по .env.example
 
 # 3. Поднять инфраструктуру и приложение одной командой
 docker compose up -d --build
@@ -32,9 +29,41 @@ curl -v http://localhost:8080/actuator/health
 # Ожидаемый ответ: {"status":"UP"}
 
 docker compose logs accounting-service
+
 ```
 
-### Подключение к базам данных
+Лог контейнера
+```shell
+docker compose -f /home/nohal/projects/accounting-service/docker-compose.yml logs --tail=200 accounting-service
+```
+
+Пересобрать контейнер после изменения .env
+```shell
+docker compose down -v --remove-orphans
+docker compose up -d --build
+```
+
+
+
+## Перед коммитом
+
+Проверить сборку
+```shell
+make install
+make check-python
+make test
+make render-diagrams
+```
+
+Проверить compose
+```shell
+set -a; source .env; set +a
+docker compose -f docker-compose.yml config --quiet
+```
+
+---
+
+## Подключение к базам данных
 
 | Окружение | Порт | База данных           | Пользователь | Пароль    |
 |-----------|------|-----------------------|--------------|-----------|
@@ -107,9 +136,8 @@ curl -s -u "user:$PASSWORD" \
 ```
 
 
-## Команды для разработки
 
-### Запуск тестов
+## Запуск тестов
 
 ```shell
 # Все тесты
@@ -125,15 +153,24 @@ mvn test -Dtest='!IntegrationTest,!RepositoryTest'
 mvn test -Dtest='IntegrationTest,RepositoryTest'
 ```
 
-### Работа с базой данных
+## Docker: принудительная пересборка
+```shell
+docker compose down
+docker compose build --no-cache accounting-service
+docker compose up -d
+# Подождать 20 секунд до полного старта и проверить логи
+docker compose logs -f accounting-service
+```
+docker compose --env-file .env up -d --build --force-recreate accounting-service
+
+## Docker: БД
 
 ```shell
 # Подключиться к БД внутри контейнера
 docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db
 
 # Выполнить SQL запрос
-docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db \
-  -c "SELECT  FROM accounts;"
+docker compose exec accounting-dev-db psql -U dev -d accounting_dev_db -c "SELECT  FROM accounts;"
 
 # Сделать дамп базы данных
 docker compose exec accounting-dev-db pg_dump -U dev accounting_dev_db > backup.sql
@@ -142,7 +179,7 @@ docker compose exec accounting-dev-db pg_dump -U dev accounting_dev_db > backup.
 cat backup.sql | docker compose exec -T accounting-dev-db psql -U dev -d accounting_dev_db
 ```
 
-### Логи
+## Docker: Логи
 
 ```shell
 # Логи всех сервисов
@@ -155,18 +192,11 @@ docker compose logs -f accounting-service
 docker compose logs -f accounting-dev-db
 ```
 
-### Завершение работы
+## Docker: Завершение работы
 
 ```shell
 # Остановить все сервисы
 docker compose down
-
-# Остановить и удалить volumes (удалит данные БД!)
-docker compose down -v
-
-# Пересобрать образы
-docker compose build --no-cache
-
 # Полная очистка Docker
 docker system prune -a --volumes
 ```
@@ -182,24 +212,45 @@ docker system prune -a --volumes
 
 ---
 
-# Автотестирование
+# Автотесты
 
-Выполнение python тестов
+## Установка окружения
 ```shell
+cd tests/accounting-api-tests
 python3.14 -m venv .venv
 source .venv/bin/activate
-#python -V
 python -m pip install --upgrade pip pip-tools
 pip-sync requirements.txt
-pytest -m smoke -v
 ```
 
+## Выполнение тестов
+
+
+```shell
+# Запуск всех тестов
+pytest -v
+# Запуск smoke-тестов
+pytest -m smoke -v
+# Запуск интеграционных тестов
+pytest -m integration -v
+
+# Проверка линтеров и типов
+ruff check
+ruff format --check
+mypy
+```
 
 ---
 
 # FAQ
 
 ## Особенности openSUSE
+
+### Доступ к volume
+Добавлять `:Z`
+```shell
+docker run --rm   -u "$(operationId -u):$(operationId -g)"   -v "$PWD:/data:Z"   -w /data   plantuml/plantuml:1.2026.8   -tsvg docs/architecture.puml
+```
 
 ### Проблема: "Failed to mark memory page as executable"
 

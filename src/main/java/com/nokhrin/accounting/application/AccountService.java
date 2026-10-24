@@ -17,15 +17,24 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final EventRepository eventRepository;
+    private final OperationRegistry operationRegistry;
 
-    public AccountService(AccountRepository accountRepository, EventRepository eventRepository) {
+    public AccountService(AccountRepository accountRepository, EventRepository eventRepository, OperationRegistry operationRegistry) {
         this.accountRepository = accountRepository;
         this.eventRepository = eventRepository;
+        this.operationRegistry = operationRegistry;
     }
+
+
+    public Account getAccount(UUID accountId) {
+        return accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+    }
+
 
     @Transactional
     public DepositResult deposit(UUID accountId, BigDecimal amount) {
-        Account account = accountRepository.findById(accountId)
+        Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         UUID operationId = UUID.randomUUID();
@@ -46,7 +55,7 @@ public class AccountService {
 
     @Transactional
     public WithdrawalResult withdraw(UUID accountId, BigDecimal amount) {
-        Account account = accountRepository.findById(accountId)
+        Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         UUID operationId = UUID.randomUUID();
@@ -67,10 +76,10 @@ public class AccountService {
 
     @Transactional
     public TransferResult transfer(UUID sourceAccountId, UUID targetAccountId, BigDecimal amount) {
-        Account sourceAccount = accountRepository.findById(sourceAccountId)
+        Account sourceAccount = accountRepository.findByIdForUpdate(sourceAccountId)
                 .orElseThrow(() -> new AccountNotFoundException(sourceAccountId));
 
-        Account targetAccount = accountRepository.findById(targetAccountId)
+        Account targetAccount = accountRepository.findByIdForUpdate(targetAccountId)
                 .orElseThrow(() -> new AccountNotFoundException(targetAccountId));
 
         UUID operationId = UUID.randomUUID();
@@ -90,28 +99,43 @@ public class AccountService {
         return result;
     }
 
-    public Account openAccount(BigDecimal initialBalance, AccountHolder holder) {
+    @Transactional
+    public Account openAccount(BigDecimal initialBalance, AccountHolder holder, UUID operationId) {
+        if (operationId != null && operationRegistry.exists(operationId)) {
+            throw new DuplicateOperationException(operationId);
+        }
+
         Account account = Account.open(initialBalance, holder);
 
         UUID eventId = UUID.randomUUID();
         Instant executedAt = Instant.now();
 
         accountRepository.create(account);
-
-        eventRepository.record(
-                new AccountOpened(
-                        UUID.randomUUID(),
-                        eventId,
-                        executedAt,
-                        Instant.now()
-                ));
+        eventRepository.record(new AccountOpened(eventId, account.id(), executedAt, Instant.now()));
+        if (operationId != null) {
+            operationRegistry.register(operationId, account.id(), "OPEN_ACCOUNT");
+        }
 
         return account;
     }
 
-    public Account getAccount(UUID accountId) {
-        return accountRepository.findById(accountId)
+    @Transactional
+    public Account closeAccount(UUID accountId) {
+        Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
-    }
 
+        UUID eventId = UUID.randomUUID();
+        Account closedAccount = account.close();
+        Instant closedAt = Instant.now();
+        accountRepository.update(closedAccount);
+        Instant recordedAt = Instant.now();
+
+        eventRepository.record(new AccountClosed(
+                eventId,
+                closedAccount.id(),
+                closedAt,
+                recordedAt
+        ));
+        return closedAccount;
+    }
 }

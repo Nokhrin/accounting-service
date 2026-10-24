@@ -1,11 +1,11 @@
-name: CI Java
+# .github/workflows/ci-java.yml
+name: CI Java - Maven Verify
 
 on:
   pull_request:
     branches: [ main ]
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,8 +13,17 @@ permissions:
 jobs:
   maven:
     runs-on: ubuntu-26.04
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
     steps:
+      - name: Check secrets
+        run: |
+          if [ -z "${{ secrets.NVD_API_KEY }}" ]; then
+            echo "::error::NVD_API_KEY secret is not set"
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v6
@@ -24,9 +33,27 @@ jobs:
 
       - uses: actions/cache@v6
         with:
-          path: ~/.m2/repository
-          key: maven-${{ hashFiles('pom.xml') }}
-          restore-keys: maven-
+          path: |
+            ~/.m2/repository
+            ~/.cache/dependency-check
+          key: maven-${{ hashFiles('pom.xml') }}-${{ hashFiles('**/*.java') }}
+          restore-keys: |
+            maven-${{ hashFiles('pom.xml') }}-
+            maven-
 
       - name: Verify
-        run: mvn -B -ntp verify
+        run: mvn -ntp -B verify
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      - name: Upload OWASP report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-check-report
+          path: target/dependency-check-report.html

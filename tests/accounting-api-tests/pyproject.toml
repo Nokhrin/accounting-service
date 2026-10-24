@@ -1,14 +1,31 @@
+# tests/accounting-api-tests/pyproject.toml
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["test"]
 addopts = "--strict-markers --strict-config -ra --alluredir=allure-results"
 markers = [
+    "integration",
     "smoke",
+    "api",
+    "db",
+    "unit",
 ]
 
 [tool.ruff]
 line-length = 120
-src = ["test"]
+src = ["src", "test"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+explicit_package_bases = true
+files = ["src", "test"]
+
+[[tool.mypy.overrides]]
+module = ["allure_pytest.*", "allure_commons.*"]
+ignore_missing_imports = true
