@@ -1,72 +1,101 @@
 package com.nokhrin.accounting.api;
 
-import com.nokhrin.accounting.api.dto.AmountRequest;
-import com.nokhrin.accounting.api.dto.OpenAccountRequest;
-import com.nokhrin.accounting.api.dto.Response;
-import com.nokhrin.accounting.api.dto.TransferResponse;
 import com.nokhrin.accounting.application.AccountService;
 import com.nokhrin.accounting.domain.account.Account;
+import com.nokhrin.accounting.domain.account.AccountHolder;
 import com.nokhrin.accounting.domain.operation.DepositResult;
 import com.nokhrin.accounting.domain.operation.TransferResult;
 import com.nokhrin.accounting.domain.operation.WithdrawalResult;
+import com.nokhrin.accounting.generated.api.AccountsApi;
+import com.nokhrin.accounting.generated.model.*;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/accounts")
-public class AccountController {
+public class AccountController implements AccountsApi {
     private final AccountService accountService;
+
 
     public AccountController(AccountService accountService) {
         this.accountService = accountService;
     }
 
-    @PostMapping
-    public ResponseEntity<Response> openAccount(@Valid @RequestBody OpenAccountRequest request) {
-        Account account = accountService.openAccount(request.initialBalance(), request.holder());
-        Response response = account.toResponse();
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @Override
+    public ResponseEntity<AccountResponse> openAccount(@Valid @RequestBody OpenAccountRequest openAccountRequest) {
+        
+        AccountHolder holder = new AccountHolder(
+                UUID.randomUUID(),
+                openAccountRequest.getHolder().getDisplayName()
+        );
+        Account account = accountService.openAccount(
+                openAccountRequest.getInitialBalance(),
+                holder,
+                openAccountRequest.getOperationId()
+        );
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .location(URI.create("/accounts/" + account.id()))
+                .body(AccountResponseMapper.from(account));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Response> getAccount(@PathVariable UUID accountId) {
+    @Override
+    public ResponseEntity<AccountResponse> getAccount(@PathVariable UUID accountId) {
         Account account = accountService.getAccount(accountId);
-        return ResponseEntity.ok(account.toResponse());
+        return ResponseEntity.ok(AccountResponseMapper.from(account));
     }
 
-    @PostMapping("/{targetId}/deposit")
-    public ResponseEntity<Response> deposit(
-            @PathVariable UUID targetId,
-            @Valid @RequestBody AmountRequest request
-    ) {
-        DepositResult result = accountService.deposit(targetId, request.amount());
-        return ResponseEntity.ok(result.accountAfter().toResponse());
+    @Override
+    public ResponseEntity<AccountResponse> closeAccount(@PathVariable UUID accountId) {
+        Account closedAccount = accountService.closeAccount(accountId);
+        return ResponseEntity.ok(AccountResponseMapper.from(closedAccount));
     }
 
-    @PostMapping("/{sourceId}/withdraw")
-    public ResponseEntity<Response> withdraw(
-            @PathVariable UUID sourceId,
-            @Valid @RequestBody AmountRequest request
+    @Override
+    public ResponseEntity<DepositResponse> deposit(
+            @PathVariable UUID targetAccountId,
+            @Valid @RequestBody AmountRequest amountRequest
     ) {
-        WithdrawalResult result = accountService.withdraw(sourceId, request.amount());
-        return ResponseEntity.ok(result.accountAfter().toResponse());
+        DepositResult deposit = accountService.deposit(targetAccountId, amountRequest.getAmount());
+        DepositResponse response = new DepositResponse(
+                deposit.operationId(),
+                AccountResponseMapper.from(deposit.accountAfter())
+        );
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{sourceId}/{targetId}/transfer")
-    public ResponseEntity<Response> transfer(
-            @PathVariable UUID sourceId,
-            @PathVariable UUID targetId,
-            @Valid @RequestBody AmountRequest request
+    @Override
+    public ResponseEntity<WithdrawalResponse> withdraw(
+            @PathVariable UUID sourceAccountId,
+            @Valid @RequestBody AmountRequest amountRequest
     ) {
-        TransferResult result = accountService.transfer(sourceId, targetId, request.amount());
-        return ResponseEntity.ok(new TransferResponse(
-                result.sourceAccountAfter().toResponse(),
-                result.targetAccountAfter().toResponse()
-        ));
+        WithdrawalResult withdraw = accountService.withdraw(sourceAccountId, amountRequest.getAmount());
+        WithdrawalResponse response = new WithdrawalResponse(
+                withdraw.operationId(),
+                AccountResponseMapper.from(withdraw.accountAfter())
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<TransferResponse> transfer(
+            @PathVariable UUID sourceAccountId,
+            @PathVariable UUID targetAccountId,
+            @Valid @RequestBody AmountRequest amountRequest
+    ) {
+        TransferResult transfer = accountService.transfer(sourceAccountId, targetAccountId, amountRequest.getAmount());
+        TransferResponse response = new TransferResponse(
+                transfer.operationId(),
+                AccountResponseMapper.from(transfer.sourceAccountAfter()),
+                AccountResponseMapper.from(transfer.targetAccountAfter())
+        );
+        return ResponseEntity.ok(response);
     }
 
 }

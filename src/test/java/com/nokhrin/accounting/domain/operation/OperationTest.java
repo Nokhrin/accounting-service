@@ -2,7 +2,7 @@ package com.nokhrin.accounting.domain.operation;
 
 import com.nokhrin.accounting.domain.account.Account;
 import com.nokhrin.accounting.domain.account.AccountHolder;
-import com.nokhrin.accounting.domain.account.AccountNotOperableException;
+import com.nokhrin.accounting.domain.account.AccountNotActiveException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -27,8 +27,8 @@ class OperationTest {
         Account closed = Account.open(BigDecimal.ZERO, HOLDER).close();
 
         assertAll(
-                () -> assertThrows(AccountNotOperableException.class, () -> new Deposit(UUID.randomUUID(), blocked, BigDecimal.TEN).execute()),
-                () -> assertThrows(AccountNotOperableException.class, () -> new Deposit(UUID.randomUUID(), closed, BigDecimal.TEN).execute())
+                () -> assertThrows(AccountNotActiveException.class, () -> new Deposit(UUID.randomUUID(), blocked, BigDecimal.TEN).execute()),
+                () -> assertThrows(AccountNotActiveException.class, () -> new Deposit(UUID.randomUUID(), closed, BigDecimal.TEN).execute())
         );
     }
 
@@ -71,7 +71,7 @@ class OperationTest {
     void transfer_sourceBlocked_throws() {
         Account sourceAccountBlocked = Account.open(BigDecimal.ONE, HOLDER).block();
         Account targetAccount = Account.open(BigDecimal.ZERO, HOLDER);
-        assertThrows(AccountNotOperableException.class,
+        assertThrows(AccountNotActiveException.class,
                 () -> new Transfer(UUID.randomUUID(), sourceAccountBlocked, targetAccount, BigDecimal.ONE).execute()
         );
     }
@@ -80,7 +80,7 @@ class OperationTest {
     void transfer_targetClosed_throws() {
         Account sourceAccount = Account.open(BigDecimal.ONE, HOLDER);
         Account targetAccountClosed = Account.open(BigDecimal.ZERO, HOLDER).close();
-        assertThrows(AccountNotOperableException.class,
+        assertThrows(AccountNotActiveException.class,
                 () -> new Transfer(UUID.randomUUID(), sourceAccount, targetAccountClosed, BigDecimal.ONE).execute()
         );
     }

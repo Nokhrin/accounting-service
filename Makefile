@@ -1,41 +1,44 @@
 # Makefile
-VENV ?= tests/accounting-api-tests/.venv
-RUFF := $(VENV)/bin/ruff
-PYTEST := $(VENV)/bin/pytest
-PIP_SYNC := $(VENV)/bin/pip-sync
+PROJECT_ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+ENV_FILE := $(PROJECT_ROOT).env
 
-.PHONY: env install fix check check-python check-java test
+MODULE_DIR := tests/accounting-api-tests
+VENV := $(MODULE_DIR)/.venv
+PYTHON := $(PROJECT_ROOT)$(VENV)/bin/python
+PIP_SYNC := $(PROJECT_ROOT)$(VENV)/bin/pip-sync
+RUFF := $(PROJECT_ROOT)$(VENV)/bin/ruff
+MYPY := $(PROJECT_ROOT)$(VENV)/bin/mypy
 
-env:
-	@printf 'PROD_POSTGRES_DB=accounting_prod_db\n' > .env
-	@printf 'PROD_POSTGRES_USER=accounting\n' >> .env
-	@printf 'PROD_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
-	@printf 'DEV_POSTGRES_DB=accounting_dev_db\n' >> .env
-	@printf 'DEV_POSTGRES_USER=dev\n' >> .env
-	@printf 'DEV_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
-	@printf 'LOCAL_POSTGRES_DB=accounting_local_db\n' >> .env
-	@printf 'LOCAL_POSTGRES_USER=local\n' >> .env
-	@printf 'LOCAL_POSTGRES_PASSWORD=%s\n' "$$(openssl rand -hex 32)" >> .env
+COMPOSE_DEV ?= docker-compose.yml
+
+ifneq ($(wildcard $(ENV_FILE)),)
+include $(ENV_FILE)
+export
+endif
+
+.PHONY: env-guard install test-java test-python test check-python up down
+
+env-guard:
+	@test -f $(ENV_FILE) || { echo "ERROR: $(ENV_FILE) not found. Run: cp .env.example .env"; exit 1; }
 
 install:
-	$(VENV)/bin/python -m pip install --upgrade pip pip-tools
-	$(PIP_SYNC) requirements.txt
+	@test -d $(VENV) || python3.14 -m venv $(VENV)
+	$(PYTHON) -m pip install --upgrade pip pip-tools
+	cd $(MODULE_DIR) && $(PIP_SYNC) requirements.txt
 
-fix:
-	$(RUFF) check --fix test
-	$(RUFF) format test
+test-java: env-guard
+	mvn -B -ntp verify
 
-test:
-	$(PYTEST) -m smoke -v
+test-python: env-guard install
+	cd $(MODULE_DIR) && $(PYTHON) -m pytest -m "smoke or integration" -q
 
 check-python:
-	$(RUFF) check test
-	$(RUFF) format --check test
-	$(VENV)/bin/mypy test
+	cd $(MODULE_DIR) && $(RUFF) check && $(RUFF) format --check && $(MYPY)
 
-check-java:
-	mvn spotless:check checkstyle:check compile
+test: test-java test-python
 
-check:
-	$(MAKE) check-python
-	$(MAKE) check-java
+up: env-guard
+	docker compose -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build accounting-service
+
+down:
+	docker compose -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down

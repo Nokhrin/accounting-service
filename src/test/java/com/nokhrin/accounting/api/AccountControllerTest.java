@@ -1,44 +1,155 @@
 package com.nokhrin.accounting.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nokhrin.accounting.api.dto.AmountRequest;
 import com.nokhrin.accounting.application.AccountService;
-import com.nokhrin.accounting.domain.account.Account;
-import com.nokhrin.accounting.domain.account.AccountHolder;
-import com.nokhrin.accounting.domain.account.AccountNotFoundException;
-import com.nokhrin.accounting.domain.account.AccountStatus;
+import com.nokhrin.accounting.domain.account.*;
+import com.nokhrin.accounting.domain.operation.DepositResult;
 import com.nokhrin.accounting.domain.operation.TransferResult;
+import com.nokhrin.accounting.domain.operation.WithdrawalResult;
+import com.nokhrin.accounting.generated.model.AccountHolderRequest;
+import com.nokhrin.accounting.generated.model.AmountRequest;
+import com.nokhrin.accounting.generated.model.OpenAccountRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.AutoConfigureJson;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AccountController.class)
+@AutoConfigureJson
 class AccountControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private JsonMapper objectMapper;
 
     @MockitoBean
     private AccountService accountService;
+
+    private final AccountHolder holder = new AccountHolder(UUID.randomUUID(), "Test User");
+    private final UUID accountId = UUID.randomUUID();
+
+    @Test
+    void openAccount_validRequest_returns201() throws Exception {
+        Account domainAccount = new Account(accountId, BigDecimal.TEN, AccountStatus.ACTIVE, holder);
+        when(accountService.openAccount(any(), any(), any()))
+                .thenReturn(domainAccount);
+
+        OpenAccountRequest request = new OpenAccountRequest(BigDecimal.TEN, new AccountHolderRequest(holder.displayName()));
+
+        mockMvc.perform(post("/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.balance").value(10))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.holder.id").value(holder.id().toString()))
+                .andExpect(jsonPath("$.holder.displayName").value("Test User"));
+    }
+
+    @Test
+    void getAccount_exists_returns200() throws Exception {
+        Account domainAccount = new Account(accountId, new BigDecimal("100.50"), AccountStatus.ACTIVE, holder);
+        when(accountService.getAccount(accountId)).thenReturn(domainAccount);
+
+        mockMvc.perform(get("/accounts/{accountId}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.balance").value(100.50))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
+    void getAccount_notFound_returns404() throws Exception {
+        when(accountService.getAccount(accountId)).thenThrow(new AccountNotFoundException(accountId));
+
+        mockMvc.perform(get("/accounts/{accountId}", accountId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
+    }
+
+    @Test
+    void deposit_zeroAmount_returns400() throws Exception {
+        AmountRequest request = new AmountRequest(BigDecimal.ZERO);
+        mockMvc.perform(post("/accounts/{accountId}/deposit", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void deposit_minimumAmount_returns200() throws Exception {
+        Account accountAfter = new Account(accountId, new BigDecimal("0.01"), AccountStatus.ACTIVE, holder);
+        when(accountService.deposit(eq(accountId), any()))
+                .thenReturn(new DepositResult(UUID.randomUUID(), accountAfter));
+
+        AmountRequest request = new AmountRequest(new BigDecimal("0.01"));
+        mockMvc.perform(post("/accounts/{accountId}/deposit", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationId").exists())
+                .andExpect(jsonPath("$.account.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.account.balance").value(0.01));
+    }
+
+    @Test
+    void deposit_validRequest_returns200() throws Exception {
+        Account accountAfter = new Account(accountId, new BigDecimal("150"), AccountStatus.ACTIVE, holder);
+        DepositResult result = new DepositResult(UUID.randomUUID(), accountAfter);
+
+        when(accountService.deposit(eq(accountId), any())).thenReturn(result);
+
+        AmountRequest request = new AmountRequest(new BigDecimal("50"));
+
+        mockMvc.perform(post("/accounts/{targetId}/deposit", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationId").exists())
+                .andExpect(jsonPath("$.account.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.account.balance").value(150));
+    }
+
+    @Test
+    void withdraw_validRequest_returns200() throws Exception {
+        Account accountAfter = new Account(accountId, new BigDecimal("50"), AccountStatus.ACTIVE, holder);
+        WithdrawalResult result = new WithdrawalResult(UUID.randomUUID(), accountAfter);
+
+        when(accountService.withdraw(eq(accountId), any())).thenReturn(result);
+
+        AmountRequest request = new AmountRequest(new BigDecimal("50"));
+
+        mockMvc.perform(post("/accounts/{sourceId}/withdraw", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationId").exists())
+                .andExpect(jsonPath("$.account.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.account.balance").value(50));
+    }
 
     @Test
     void transfer_validRequest_returnsTransferResponse() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
-        AccountHolder holder = new AccountHolder(UUID.randomUUID(), "Test");
         Account sourceAfter = new Account(sourceId, BigDecimal.ZERO, AccountStatus.ACTIVE, holder);
         Account targetAfter = new Account(targetId, new BigDecimal("100"), AccountStatus.ACTIVE, holder);
         TransferResult result = new TransferResult(UUID.randomUUID(), sourceAfter, targetAfter);
@@ -52,6 +163,7 @@ class AccountControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationId").exists())
                 .andExpect(jsonPath("$.sourceAccount.id").value(sourceId.toString()))
                 .andExpect(jsonPath("$.targetAccount.id").value(targetId.toString()));
     }
@@ -72,4 +184,116 @@ class AccountControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
     }
+
+
+    @Test
+    void close_zeroBalance_returns200() throws Exception {
+        when(accountService.closeAccount(accountId))
+                .thenReturn(new Account(accountId, BigDecimal.ZERO, AccountStatus.CLOSED, holder));
+        mockMvc.perform(post("/accounts/{accountId}/close", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
+    }
+
+    @Test
+    void closeAccount_activeAccountWithZeroBalance_returnsClosedAccount() throws Exception {
+        UUID accountId = UUID.randomUUID();
+
+        AccountHolder holder = new AccountHolder(UUID.randomUUID(), "Test Holder");
+
+        Account closedAccount = new Account(
+                accountId,
+                BigDecimal.ZERO,
+                AccountStatus.CLOSED,
+                holder
+        );
+
+        when(accountService.closeAccount(accountId)).thenReturn(closedAccount);
+
+        mockMvc.perform(post("/accounts/{accountId}/close", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.balance").value(0));
+    }
+
+    @Test
+    void closeAccount_nonZeroBalance_returns409BalanceNotZero() throws Exception {
+        UUID accountId = UUID.randomUUID();
+
+        when(accountService.closeAccount(accountId))
+                .thenThrow(new BalanceNotZeroException(accountId, new BigDecimal("10.00")));
+
+        mockMvc.perform(post("/accounts/{accountId}/close", accountId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("BALANCE_NOT_ZERO"));
+    }
+
+    @Test
+    void closeAccount_notActiveAccount_returns409AccountNotActive() throws Exception {
+        UUID accountId = UUID.randomUUID();
+
+        when(accountService.closeAccount(accountId))
+                .thenThrow(new AccountNotActiveException(accountId, AccountStatus.BLOCKED));
+
+        mockMvc.perform(post("/accounts/{accountId}/close", accountId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
+    }
+
+
+    @Test
+    void openAccount_emptyDisplayName_returns400() throws Exception {
+        OpenAccountRequest request = new OpenAccountRequest(
+                BigDecimal.TEN,
+                new AccountHolderRequest("")
+        );
+        mockMvc.perform(post("/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void openAccount_negativeBalance_returns400() throws Exception {
+        OpenAccountRequest request = new OpenAccountRequest(
+                new BigDecimal("-1.00"),
+                new AccountHolderRequest("Test")
+        );
+        mockMvc.perform(post("/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getAccount_malformedUuid_returns400() throws Exception {
+        mockMvc.perform(get("/accounts/{id}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+
+    @Test
+    void deposit_onClosedAccount_returns409() throws Exception {
+        when(accountService.deposit(eq(accountId), any()))
+                .thenThrow(new AccountNotActiveException(accountId, AccountStatus.CLOSED));
+        mockMvc.perform(post("/accounts/{id}/deposit", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":\"10.00\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
+    }
+
+    @Test
+    void close_blockedAccount_returns409() throws Exception {
+        when(accountService.closeAccount(accountId))
+                .thenThrow(new AccountNotActiveException(accountId, AccountStatus.BLOCKED));
+        mockMvc.perform(post("/accounts/{id}/close", accountId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
+    }
+
+
 }

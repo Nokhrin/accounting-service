@@ -1,5 +1,6 @@
 # .gitignore
 .env
+!.env.example
 .idea/
 *.iml
 target/

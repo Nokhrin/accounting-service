@@ -1,15 +1,16 @@
-name: CI Python API Tests
+# .github/workflows/ci-python.yml
+name: CI Python - Run API Tests
 
 on:
+  workflow_call:
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  api_tests:
     runs-on: ubuntu-26.04
     defaults:
       run:
@@ -30,29 +31,35 @@ jobs:
           pip-sync requirements.txt
 
       - name: Ruff check
-        run: ruff check test
+        run: ruff check
 
       - name: Ruff format check
-        run: ruff format --check test
+        run: ruff format --check
 
-      - name: Generate ephemeral dev database password
+      - name: Mypy
+        run: python -m mypy
+
+      - name: Generate passwords
         working-directory: .
         run: |
-          echo "DEV_POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "DEV_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "TEST_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: Start application and dev database
         working-directory: .
         env:
-          DEV_POSTGRES_DB: ${{ vars.DEV_POSTGRES_DB || 'accounting_dev_db' }}
-          DEV_POSTGRES_USER: ${{ vars.DEV_POSTGRES_USER || 'dev' }}
-          DEV_POSTGRES_PASSWORD: ${{ env.DEV_POSTGRES_PASSWORD }}
-        run: docker compose -f compose.dev.yml up -d --build accounting-service
+          DEV_DB: ${{ vars.DEV_DB }}
+          DEV_USER: ${{ vars.DEV_USER }}
+          DEV_PASSWORD: ${{ env.DEV_PASSWORD }}
+          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+        run: docker compose -f docker-compose.yml up -d --build accounting-service
 
       - name: Wait for application health
         working-directory: .
         run: |
           for i in {1..30}; do
-            if curl -fs http://localhost:8080/actuator/health; then
+            if curl -fs http://127.0.0.1:8080/actuator/health; then
               exit 0
             fi
             sleep 2
@@ -61,19 +68,26 @@ jobs:
 
       - name: Run pytest
         env:
-          ACCOUNTING_API_TESTS_BASE_URL: http://localhost:8080
-          ACCOUNTING_API_TESTS_TIMEOUT_SECONDS: "10"
-        run: python -m pytest -m smoke -v
+          TEST_BASE_URL: ${{ vars.TEST_BASE_URL }}
+          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+          TEST_TIMEOUT_SECONDS: ${{ vars.TEST_TIMEOUT_SECONDS }}
+          TEST_DB_HOST: ${{ vars.TEST_DB_HOST }}
+          TEST_DB_PORT: ${{ vars.TEST_DB_PORT }}
+          TEST_DB_NAME: ${{ vars.DEV_DB }}
+          TEST_DB_USER: ${{ vars.DEV_USER }}
+          TEST_DB_PASSWORD: ${{ env.DEV_PASSWORD }}
+        run: python -m pytest -m "smoke" -v
 
       - name: Capture Docker logs
         if: always()
         working-directory: .
         env:
-          DEV_POSTGRES_DB: ${{ vars.DEV_POSTGRES_DB || 'accounting_dev_db' }}
-          DEV_POSTGRES_USER: ${{ vars.DEV_POSTGRES_USER || 'dev' }}
-          DEV_POSTGRES_PASSWORD: ${{ env.DEV_POSTGRES_PASSWORD }}
+          DEV_DB: ${{ vars.DEV_DB || 'accounting_dev_db' }}
+          DEV_USER: ${{ vars.DEV_USER || 'dev' }}
+          DEV_PASSWORD: ${{ env.DEV_PASSWORD }}
         run: |
-          docker compose -f compose.dev.yml logs --no-color > docker.log || true
+          docker compose -f docker-compose.yml logs --no-color > docker.log || true
 
       - name: Upload Allure results
         if: always()
