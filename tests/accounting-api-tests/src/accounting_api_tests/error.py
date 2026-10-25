@@ -1,12 +1,6 @@
 import httpx
-from pydantic import BaseModel
 
-
-class ErrorResponse(BaseModel):
-    code: str
-    message: str
-    operationId: str | None = None
-    details: list[str] | None = None
+from accounting_api_tests.models.generated.models import ErrorResponse
 
 
 class ApiError(Exception):

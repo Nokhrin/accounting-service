@@ -7,3 +7,4 @@ pydantic-settings
 psycopg[binary]
 ruff
 mypy
+datamodel-code-generator

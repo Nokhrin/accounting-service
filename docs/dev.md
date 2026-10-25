@@ -230,6 +230,12 @@ python -m pip install --upgrade pip pip-tools
 pip-sync requirements.txt
 ```
 
+### Обновление зависимостей
+```shell
+pip-compile requirements.in
+pip-sync requirements.txt
+```
+
 ## Выполнение тестов
 
 
@@ -250,6 +256,13 @@ mypy
 ---
 
 # FAQ
+
+## Docker
+### Could not transfer metadata ... repo.maven.apache.org: Temporary failure in name resolution
+```shell
+sudo systemctl restart docker
+make up
+```
 
 ## Особенности openSUSE
 

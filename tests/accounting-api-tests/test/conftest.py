@@ -1,4 +1,6 @@
+import os
 from collections.abc import Generator
+from unittest.mock import patch
 
 import pytest
 
@@ -29,3 +31,22 @@ def unauthenticated_account_client(app_settings: Settings) -> Generator[AccountC
     client = AccountClient(settings=app_settings, auth=UnAuthClient())
     yield client
     client.close()
+
+
+@pytest.fixture
+def test_settings() -> Settings:
+    with patch.dict(
+        os.environ,
+        {
+            "TEST_BASE_URL": "http://testhost",
+            "TEST_TIMEOUT_SECONDS": "10",
+            "TEST_USERNAME": "user",
+            "TEST_PASSWORD": "pass",
+            "TEST_DB_HOST": "localhost",
+            "TEST_DB_PORT": "5432",
+            "TEST_DB_NAME": "test_db",
+            "TEST_DB_USER": "test_user",
+            "TEST_DB_PASSWORD": "test_pass",
+        },
+    ):
+        return Settings()

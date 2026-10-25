@@ -14,6 +14,7 @@ markers = [
 [tool.ruff]
 line-length = 120
 src = ["src", "test"]
+extend-exclude = ["src/accounting_api_tests/models/generated"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -25,6 +26,7 @@ plugins = ["pydantic.mypy"]
 mypy_path = "src"
 explicit_package_bases = true
 files = ["src", "test"]
+exclude = ["src/accounting_api_tests/models/generated/"]
 
 [[tool.mypy.overrides]]
 module = ["allure_pytest.*", "allure_commons.*"]
