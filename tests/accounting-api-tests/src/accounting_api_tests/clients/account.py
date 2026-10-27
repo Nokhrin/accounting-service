@@ -1,20 +1,21 @@
-from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 import httpx
+from pydantic import BaseModel
 
 from accounting_api_tests.clients.auth import BasicAuthClient, UnAuthClient, build_auth
 from accounting_api_tests.config import Settings
 from accounting_api_tests.config import settings as app_settings
-from accounting_api_tests.error import ApiError, BadRequestError, ConflictError, ErrorResponse, NotFoundError
-from accounting_api_tests.models.account import AccountRequest, OpenAccountRequest
-from accounting_api_tests.models.operations import (
+from accounting_api_tests.error import ApiError, BadRequestError, ConflictError, NotFoundError
+from accounting_api_tests.models.generated.models import (
+    AccountResponse,
     AmountRequest,
-    DepositRequest,
-    TransferRequest,
+    DepositResponse,
+    ErrorResponse,
+    OpenAccountRequest,
     TransferResponse,
-    WithdrawalRequest,
+    WithdrawalResponse,
 )
 
 AuthLike = BasicAuthClient | UnAuthClient | None
@@ -48,7 +49,8 @@ class AccountClient:
         if self._own_client:
             self.client.close()
 
-    def _handle_response(self, response: httpx.Response) -> httpx.Response:
+    @staticmethod
+    def _handle_response(response: httpx.Response) -> httpx.Response:
         if response.is_success:
             return response
         error: ErrorResponse | None = None
@@ -73,37 +75,26 @@ class AccountClient:
         resp = self.client.get(path)
         return self._handle_response(resp)
 
-    def open_account(self, request: OpenAccountRequest) -> AccountRequest:
-        payload = request.model_dump(mode="json")
-        resp = self._post("/accounts", payload)
-        return AccountRequest.model_validate_json(resp.text)
+    @staticmethod
+    def _payload(request: BaseModel) -> dict[str, Any]:
+        return request.model_dump(mode="json", by_alias=True, exclude_none=True)
 
-    def get_account(self, account_id: UUID) -> AccountRequest:
+    def open_account(self, request: OpenAccountRequest) -> AccountResponse:
+        resp = self._post("/accounts", self._payload(request))
+        return AccountResponse.model_validate_json(resp.text)
+
+    def get_account(self, account_id: UUID) -> AccountResponse:
         resp = self._get(f"/accounts/{account_id}")
-        return AccountRequest.model_validate_json(resp.text)
+        return AccountResponse.model_validate_json(resp.text)
 
-    def deposit(self, account_id: UUID, request: Decimal | DepositRequest | AmountRequest) -> AccountRequest:
-        if isinstance(request, Decimal):
-            payload = AmountRequest(amount=request).model_dump(mode="json")
-        else:
-            payload = request.model_dump(mode="json")
-        resp = self._post(f"/accounts/{account_id}/deposit", payload)
-        return AccountRequest.model_validate_json(resp.text)
+    def deposit(self, account_id: UUID, request: AmountRequest) -> DepositResponse:
+        resp = self._post(f"/accounts/{account_id}/deposit", self._payload(request))
+        return DepositResponse.model_validate_json(resp.text)
 
-    def withdraw(self, account_id: UUID, request: Decimal | WithdrawalRequest | AmountRequest) -> AccountRequest:
-        if isinstance(request, Decimal):
-            payload = AmountRequest(amount=request).model_dump(mode="json")
-        else:
-            payload = request.model_dump(mode="json")
-        resp = self._post(f"/accounts/{account_id}/withdraw", payload)
-        return AccountRequest.model_validate_json(resp.text)
+    def withdraw(self, account_id: UUID, request: AmountRequest) -> WithdrawalResponse:
+        resp = self._post(f"/accounts/{account_id}/withdraw", self._payload(request))
+        return WithdrawalResponse.model_validate_json(resp.text)
 
-    def transfer(
-        self, source_id: UUID, target_id: UUID, request: Decimal | TransferRequest | AmountRequest
-    ) -> TransferResponse:
-        if isinstance(request, Decimal):
-            payload = AmountRequest(amount=request).model_dump(mode="json")
-        else:
-            payload = request.model_dump(mode="json")
-        resp = self._post(f"/accounts/{source_id}/{target_id}/transfer", payload)
+    def transfer(self, source_id: UUID, target_id: UUID, request: AmountRequest) -> TransferResponse:
+        resp = self._post(f"/accounts/{source_id}/{target_id}/transfer", self._payload(request))
         return TransferResponse.model_validate_json(resp.text)

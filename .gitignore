@@ -10,6 +10,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.pyc
+tests/accounting-api-tests/src/accounting_api_tests/models/generated/
 
 allure-results/
 allure-report/
