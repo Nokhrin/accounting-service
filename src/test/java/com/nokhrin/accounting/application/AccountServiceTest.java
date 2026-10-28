@@ -10,6 +10,7 @@ import com.nokhrin.accounting.domain.event.EventRepository;
 import com.nokhrin.accounting.domain.event.FundsDeposited;
 import com.nokhrin.accounting.domain.operation.DuplicateOperationException;
 import com.nokhrin.accounting.domain.operation.OperationRegistry;
+import com.nokhrin.accounting.domain.operation.OperationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,7 +55,9 @@ class AccountServiceTest {
         when(accountRepository.findByIdForUpdate(accountId))
                 .thenReturn(Optional.of(initialAccount));
 
-        accountService.deposit(accountId, new BigDecimal("90"));
+        UUID operationId = UUID.randomUUID();
+
+        accountService.deposit(accountId, new BigDecimal("90"), operationId);
 
         ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
         verify(accountRepository).update(accountArgumentCaptor.capture());
@@ -73,26 +76,25 @@ class AccountServiceTest {
     @Test
     void openAccount_knownOperationId_throwsAndDoesNotCreate() {
         UUID operationId = UUID.randomUUID();
-        when(operationRegistry.exists(operationId)).thenReturn(true);
+        doThrow(new DuplicateOperationException(operationId))
+                .when(operationRegistry).register(eq(operationId), any(), eq(OperationType.OPEN_ACCOUNT));
 
         assertThrows(DuplicateOperationException.class,
                 () -> accountService.openAccount(BigDecimal.TEN, holder, operationId));
+
         verify(accountRepository, never()).create(any());
+        verify(eventRepository, never()).record(any());
     }
 
     @Test
     void openAccount_newOperationId_registersOperation() {
         UUID operationId = UUID.randomUUID();
-        when(operationRegistry.exists(operationId)).thenReturn(false);
-        doNothing().when(accountRepository).create(any());
-        doNothing().when(eventRepository).record(any());
 
         accountService.openAccount(BigDecimal.TEN, holder, operationId);
 
-        verify(operationRegistry).exists(operationId);
+        verify(operationRegistry).register(eq(operationId), any(UUID.class), eq(OperationType.OPEN_ACCOUNT));
         verify(accountRepository).create(any());
         verify(eventRepository).record(any(AccountOpened.class));
-        verify(operationRegistry).register(eq(operationId), any(UUID.class), eq("OPEN_ACCOUNT"));
     }
 
     @Test

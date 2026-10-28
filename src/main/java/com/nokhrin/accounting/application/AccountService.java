@@ -33,11 +33,12 @@ public class AccountService {
 
 
     @Transactional
-    public DepositResult deposit(UUID accountId, BigDecimal amount) {
+    public DepositResult deposit(UUID accountId, BigDecimal amount, UUID operationId) {
+        operationRegistry.register(operationId, accountId, OperationType.DEPOSIT);
+
         Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
-        UUID operationId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
 
         Deposit depositOperation = new Deposit(operationId, account, amount);
@@ -54,11 +55,12 @@ public class AccountService {
     }
 
     @Transactional
-    public WithdrawalResult withdraw(UUID accountId, BigDecimal amount) {
+    public WithdrawalResult withdraw(UUID accountId, BigDecimal amount, UUID operationId) {
+        operationRegistry.register(operationId, accountId, OperationType.WITHDRAWAL);
+
         Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
-        UUID operationId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
 
         Withdrawal withdrawal = new Withdrawal(operationId, account, amount);
@@ -75,14 +77,15 @@ public class AccountService {
     }
 
     @Transactional
-    public TransferResult transfer(UUID sourceAccountId, UUID targetAccountId, BigDecimal amount) {
+    public TransferResult transfer(UUID sourceAccountId, UUID targetAccountId, BigDecimal amount, UUID operationId) {
+        operationRegistry.register(operationId, sourceAccountId, OperationType.TRANSFER);
+
         Account sourceAccount = accountRepository.findByIdForUpdate(sourceAccountId)
                 .orElseThrow(() -> new AccountNotFoundException(sourceAccountId));
 
         Account targetAccount = accountRepository.findByIdForUpdate(targetAccountId)
                 .orElseThrow(() -> new AccountNotFoundException(targetAccountId));
 
-        UUID operationId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
 
         Transfer transfer = new Transfer(operationId, sourceAccount, targetAccount, amount);
@@ -101,26 +104,22 @@ public class AccountService {
 
     @Transactional
     public Account openAccount(BigDecimal initialBalance, AccountHolder holder, UUID operationId) {
-        if (operationId != null && operationRegistry.exists(operationId)) {
-            throw new DuplicateOperationException(operationId);
-        }
-
         Account account = Account.open(initialBalance, holder);
+        operationRegistry.register(operationId, account.id(), OperationType.OPEN_ACCOUNT);
 
         UUID eventId = UUID.randomUUID();
         Instant executedAt = Instant.now();
 
         accountRepository.create(account);
         eventRepository.record(new AccountOpened(eventId, account.id(), executedAt, Instant.now()));
-        if (operationId != null) {
-            operationRegistry.register(operationId, account.id(), "OPEN_ACCOUNT");
-        }
 
         return account;
     }
 
     @Transactional
     public Account closeAccount(UUID accountId) {
+        UUID operationId = UUID.randomUUID();
+        operationRegistry.register(operationId, accountId, OperationType.CLOSE_ACCOUNT);
         Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 

@@ -58,13 +58,14 @@ class AccountServiceConcurrencyTest {
         CountDownLatch start = new CountDownLatch(1);
 
         List<Future<Object>> futures = IntStream.range(0, threads)
-                .mapToObj(i -> executor.submit(() -> {
+                .mapToObj(_ -> executor.submit(() -> {
+                    UUID operationId = UUID.randomUUID();
                     try {
                         start.await();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
-                    accountService.deposit(account.id(), amount);
+                    accountService.deposit(account.id(), amount, operationId);
                     return null;
                 }))
                 .toList();

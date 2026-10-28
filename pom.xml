@@ -18,9 +18,8 @@
         <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <jjwt.version>0.13.0</jjwt.version>
         <testcontainers.version>2.0.5</testcontainers.version>
-        <mapstruct.version>1.7.0.Beta1</mapstruct.version>
         <openapi-generator.version>7.22.0</openapi-generator.version>
-        <springdoc.version>3.0.3</springdoc.version>
+        <springdoc.version>3.2.0</springdoc.version>
         <jqwik.version>1.10.1</jqwik.version>
         <archunit-junit5.version>1.5.1</archunit-junit5.version>
     </properties>
@@ -64,11 +63,6 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
-            <version>${mapstruct.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -151,13 +145,7 @@
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <release>${java.version}</release>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                            <version>${mapstruct.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
+                    <parameters>true</parameters>
                 </configuration>
             </plugin>
             <plugin>
@@ -238,6 +226,7 @@
                                 <openApiNullable>false</openApiNullable>
                                 <useBeanValidation>true</useBeanValidation>
                                 <performBeanValidation>true</performBeanValidation>
+                                <useJakartaEe>true</useJakartaEe>
                                 <useTags>true</useTags>
                             </configOptions>
                             <generateApiTests>false</generateApiTests>
@@ -261,7 +250,6 @@
                     </formats>
                 </configuration>
             </plugin>
-
         </plugins>
     </build>
 </project>

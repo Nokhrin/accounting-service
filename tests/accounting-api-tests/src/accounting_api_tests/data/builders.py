@@ -8,7 +8,7 @@ from accounting_api_tests.models.generated.models import (
 )
 
 
-def amount_request(amount: Decimal, operation_id: UUID | None = None) -> AmountRequest:
+def amount_request(amount: Decimal, operation_id: UUID) -> AmountRequest:
     if amount <= 0:
         raise ValueError(f"amount must be positive, got {amount}")
     return AmountRequest(operationId=operation_id, amount=amount)
@@ -23,12 +23,13 @@ def holder_request(name: str) -> AccountHolderRequest:
 def open_account_request(
     initial_balance: Decimal,
     holder_name: str,
-    operation_id: UUID | None = None,
+    operation_id: UUID,
 ) -> OpenAccountRequest:
     if initial_balance < 0:
         raise ValueError(f"initial_balance must be non-negative, got {initial_balance}")
     if not holder_name:
         raise ValueError("holder_name must not be empty")
+
     return OpenAccountRequest(
         operationId=operation_id,
         initialBalance=initial_balance,
