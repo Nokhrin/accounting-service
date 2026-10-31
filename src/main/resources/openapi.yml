@@ -308,7 +308,7 @@ components:
 
     OpenAccountRequest:
       type: object
-      required: [ initialBalance, holder ]
+      required: [ operationId, initialBalance, holder ]
       properties:
         operationId:
           type: string
@@ -322,7 +322,7 @@ components:
 
     AmountRequest:
       type: object
-      required: [ amount ]
+      required: [ operationId, amount ]
       properties:
         operationId:
           type: string

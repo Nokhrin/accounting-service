@@ -3,6 +3,7 @@ package com.nokhrin.accounting.api;
 import com.nokhrin.accounting.application.AccountService;
 import com.nokhrin.accounting.domain.account.*;
 import com.nokhrin.accounting.domain.operation.DepositResult;
+import com.nokhrin.accounting.domain.operation.DuplicateOperationException;
 import com.nokhrin.accounting.domain.operation.TransferResult;
 import com.nokhrin.accounting.domain.operation.WithdrawalResult;
 import com.nokhrin.accounting.generated.model.AccountHolderRequest;
@@ -43,6 +44,21 @@ class AccountControllerTest {
 
     private final AccountHolder holder = new AccountHolder(UUID.randomUUID(), "Test User");
     private final UUID accountId = UUID.randomUUID();
+    private final UUID operationId = UUID.randomUUID();
+
+    private OpenAccountRequest openAccountRequest(BigDecimal amount, AccountHolderRequest holder) {
+        return new OpenAccountRequest()
+                .operationId(operationId)
+                .initialBalance(amount)
+                .holder(holder);
+    }
+
+    private AmountRequest amountRequest(BigDecimal amount) {
+        return new AmountRequest()
+                .amount(amount)
+                .operationId(operationId);
+    }
+
 
     @Test
     void openAccount_validRequest_returns201() throws Exception {
@@ -50,7 +66,7 @@ class AccountControllerTest {
         when(accountService.openAccount(any(), any(), any()))
                 .thenReturn(domainAccount);
 
-        OpenAccountRequest request = new OpenAccountRequest(BigDecimal.TEN, new AccountHolderRequest(holder.displayName()));
+        OpenAccountRequest request = openAccountRequest(BigDecimal.TEN, new AccountHolderRequest(holder.displayName()));
 
         mockMvc.perform(post("/accounts")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,7 +102,7 @@ class AccountControllerTest {
 
     @Test
     void deposit_zeroAmount_returns400() throws Exception {
-        AmountRequest request = new AmountRequest(BigDecimal.ZERO);
+        AmountRequest request = amountRequest(BigDecimal.ZERO);
         mockMvc.perform(post("/accounts/{accountId}/deposit", accountId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -97,10 +113,10 @@ class AccountControllerTest {
     @Test
     void deposit_minimumAmount_returns200() throws Exception {
         Account accountAfter = new Account(accountId, new BigDecimal("0.01"), AccountStatus.ACTIVE, holder);
-        when(accountService.deposit(eq(accountId), any()))
+        when(accountService.deposit(eq(accountId), any(), any()))
                 .thenReturn(new DepositResult(UUID.randomUUID(), accountAfter));
 
-        AmountRequest request = new AmountRequest(new BigDecimal("0.01"));
+        AmountRequest request = amountRequest(new BigDecimal("0.01"));
         mockMvc.perform(post("/accounts/{accountId}/deposit", accountId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -115,9 +131,9 @@ class AccountControllerTest {
         Account accountAfter = new Account(accountId, new BigDecimal("150"), AccountStatus.ACTIVE, holder);
         DepositResult result = new DepositResult(UUID.randomUUID(), accountAfter);
 
-        when(accountService.deposit(eq(accountId), any())).thenReturn(result);
+        when(accountService.deposit(eq(accountId), any(), any())).thenReturn(result);
 
-        AmountRequest request = new AmountRequest(new BigDecimal("50"));
+        AmountRequest request = amountRequest(new BigDecimal("50"));
 
         mockMvc.perform(post("/accounts/{targetId}/deposit", accountId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -129,13 +145,27 @@ class AccountControllerTest {
     }
 
     @Test
+    void deposit_duplicateOperationId_returns409() throws Exception {
+        when(accountService.deposit(eq(accountId), any(), eq(operationId)))
+                .thenThrow(new DuplicateOperationException(operationId));
+
+        AmountRequest request = amountRequest(new BigDecimal("50"));
+
+        mockMvc.perform(post("/accounts/{targetId}/deposit", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_OPERATION"));
+    }
+
+    @Test
     void withdraw_validRequest_returns200() throws Exception {
         Account accountAfter = new Account(accountId, new BigDecimal("50"), AccountStatus.ACTIVE, holder);
         WithdrawalResult result = new WithdrawalResult(UUID.randomUUID(), accountAfter);
 
-        when(accountService.withdraw(eq(accountId), any())).thenReturn(result);
+        when(accountService.withdraw(eq(accountId), any(), any())).thenReturn(result);
 
-        AmountRequest request = new AmountRequest(new BigDecimal("50"));
+        AmountRequest request = amountRequest(new BigDecimal("50"));
 
         mockMvc.perform(post("/accounts/{sourceId}/withdraw", accountId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -147,6 +177,20 @@ class AccountControllerTest {
     }
 
     @Test
+    void withdraw_duplicateOperationId_returns409() throws Exception {
+        when(accountService.withdraw(eq(accountId), any(), eq(operationId)))
+                .thenThrow(new DuplicateOperationException(operationId));
+
+        AmountRequest request = amountRequest(new BigDecimal("50"));
+
+        mockMvc.perform(post("/accounts/{sourceId}/withdraw", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_OPERATION"));
+    }
+
+    @Test
     void transfer_validRequest_returnsTransferResponse() throws Exception {
         UUID sourceId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
@@ -154,10 +198,10 @@ class AccountControllerTest {
         Account targetAfter = new Account(targetId, new BigDecimal("100"), AccountStatus.ACTIVE, holder);
         TransferResult result = new TransferResult(UUID.randomUUID(), sourceAfter, targetAfter);
 
-        when(accountService.transfer(sourceId, targetId, new BigDecimal("100")))
+        when(accountService.transfer(eq(sourceId), eq(targetId), any(), any()))
                 .thenReturn(result);
 
-        AmountRequest request = new AmountRequest(new BigDecimal("100"));
+        AmountRequest request = amountRequest(new BigDecimal("100"));
 
         mockMvc.perform(post("/accounts/{sourceId}/{targetId}/transfer", sourceId, targetId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -173,10 +217,10 @@ class AccountControllerTest {
         UUID sourceId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
 
-        when(accountService.transfer(sourceId, targetId, new BigDecimal("100")))
+        when(accountService.transfer(eq(sourceId), eq(targetId), any(), any()))
                 .thenThrow(new AccountNotFoundException(sourceId));
 
-        AmountRequest request = new AmountRequest(new BigDecimal("100"));
+        AmountRequest request = amountRequest(new BigDecimal("100"));
 
         mockMvc.perform(post("/accounts/{sourceId}/{targetId}/transfer", sourceId, targetId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -185,6 +229,22 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_FOUND"));
     }
 
+    @Test
+    void transfer_duplicateOperationId_returns409() throws Exception {
+        UUID sourceId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+
+        when(accountService.transfer(eq(sourceId), eq(targetId), any(), eq(operationId)))
+                .thenThrow(new DuplicateOperationException(operationId));
+
+        AmountRequest request = amountRequest(new BigDecimal("100"));
+
+        mockMvc.perform(post("/accounts/{sourceId}/{targetId}/transfer", sourceId, targetId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_OPERATION"));
+    }
 
     @Test
     void close_zeroBalance_returns200() throws Exception {
@@ -244,7 +304,7 @@ class AccountControllerTest {
 
     @Test
     void openAccount_emptyDisplayName_returns400() throws Exception {
-        OpenAccountRequest request = new OpenAccountRequest(
+        OpenAccountRequest request = openAccountRequest(
                 BigDecimal.TEN,
                 new AccountHolderRequest("")
         );
@@ -257,7 +317,7 @@ class AccountControllerTest {
 
     @Test
     void openAccount_negativeBalance_returns400() throws Exception {
-        OpenAccountRequest request = new OpenAccountRequest(
+        OpenAccountRequest request = openAccountRequest(
                 new BigDecimal("-1.00"),
                 new AccountHolderRequest("Test")
         );
@@ -269,7 +329,7 @@ class AccountControllerTest {
 
     @Test
     void getAccount_malformedUuid_returns400() throws Exception {
-        mockMvc.perform(get("/accounts/{id}", "not-a-uuid"))
+        mockMvc.perform(get("/accounts/{accountId}", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -277,11 +337,14 @@ class AccountControllerTest {
 
     @Test
     void deposit_onClosedAccount_returns409() throws Exception {
-        when(accountService.deposit(eq(accountId), any()))
+        when(accountService.deposit(eq(accountId), any(), any()))
                 .thenThrow(new AccountNotActiveException(accountId, AccountStatus.CLOSED));
-        mockMvc.perform(post("/accounts/{id}/deposit", accountId)
+
+        AmountRequest request = amountRequest(new BigDecimal("10.00"));
+
+        mockMvc.perform(post("/accounts/{accountId}/deposit", accountId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"amount\":\"10.00\"}"))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
     }
@@ -290,10 +353,25 @@ class AccountControllerTest {
     void close_blockedAccount_returns409() throws Exception {
         when(accountService.closeAccount(accountId))
                 .thenThrow(new AccountNotActiveException(accountId, AccountStatus.BLOCKED));
-        mockMvc.perform(post("/accounts/{id}/close", accountId))
+        mockMvc.perform(post("/accounts/{accountId}/close", accountId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_ACTIVE"));
     }
 
+    @Test
+    void openAccount_duplicateOperationId_returns409() throws Exception {
+        when(accountService.openAccount(any(), any(), eq(operationId)))
+                .thenThrow(new DuplicateOperationException(operationId));
 
+        OpenAccountRequest request = openAccountRequest(
+                BigDecimal.TEN,
+                new AccountHolderRequest("Test User")
+        );
+
+        mockMvc.perform(post("/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_OPERATION"));
+    }
 }

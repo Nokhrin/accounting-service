@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p src/accounting_api_tests/models/generated
           datamodel-codegen \
-            --input ../../src/main/resources/openapi.yml \
+            --input ${{ github.workspace }}/src/main/resources/openapi.yml \
             --output src/accounting_api_tests/models/generated/models.py \
             --output-model-type pydantic_v2.BaseModel \
             --input-file-type openapi \
@@ -60,19 +60,33 @@ jobs:
         run: python -m mypy
 
       - name: Generate ephemeral credentials
-        working-directory: .
         run: |
           echo "DEV_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "TEST_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
+      - name: Prepare .env for Docker Compose
+        working-directory: .
+        run: |
+          cat <<EOF > .env
+          DEV_DB=${{ vars.DEV_DB }}
+          DEV_USER=${{ vars.DEV_USER }}
+          DEV_PASSWORD=${{ env.DEV_PASSWORD }}
+          TEST_USERNAME=${{ vars.TEST_USERNAME }}
+          TEST_PASSWORD=${{ env.TEST_PASSWORD }}
+          DB_URL=jdbc:postgresql://accounting-dev-db:5432/${{ vars.DEV_DB }}
+          APP_HOST_PORT=8080
+          DB_HOST_PORT=5433
+          TEST_BASE_URL=http://127.0.0.1:8080
+          TEST_TIMEOUT_SECONDS=10
+          TEST_DB_HOST=127.0.0.1
+          TEST_DB_PORT=5433
+          TEST_DB_NAME=${{ vars.DEV_DB }}
+          TEST_DB_USER=${{ vars.DEV_USER }}
+          TEST_DB_PASSWORD=${{ env.DEV_PASSWORD }}
+          EOF
+
       - name: Start application and dev database
         working-directory: .
-        env:
-          DEV_DB: ${{ vars.DEV_DB }}
-          DEV_USER: ${{ vars.DEV_USER }}
-          DEV_PASSWORD: ${{ env.DEV_PASSWORD }}
-          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
-          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
         run: docker compose -f docker-compose.yml up -d --build accounting-service
 
       - name: Wait for application readiness
@@ -88,27 +102,12 @@ jobs:
           exit 1
 
       - name: Run pytest
-        env:
-          TEST_BASE_URL: ${{ vars.TEST_BASE_URL }}
-          TEST_USERNAME: ${{ vars.TEST_USERNAME }}
-          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
-          TEST_TIMEOUT_SECONDS: ${{ vars.TEST_TIMEOUT_SECONDS }}
-          TEST_DB_HOST: ${{ vars.TEST_DB_HOST }}
-          TEST_DB_PORT: ${{ vars.TEST_DB_PORT }}
-          TEST_DB_NAME: ${{ vars.DEV_DB }}
-          TEST_DB_USER: ${{ vars.DEV_USER }}
-          TEST_DB_PASSWORD: ${{ env.DEV_PASSWORD }}
         run: python -m pytest -m "smoke or integration" -v
 
       - name: Capture Docker logs
         if: always()
         working-directory: .
-        env:
-          DEV_DB: ${{ vars.DEV_DB || 'accounting_dev_db' }}
-          DEV_USER: ${{ vars.DEV_USER || 'dev' }}
-          DEV_PASSWORD: ${{ env.DEV_PASSWORD }}
-        run: |
-          docker compose -f docker-compose.yml logs --no-color > docker.log || true
+        run: docker compose -f docker-compose.yml logs --no-color > docker.log || true
 
       - name: Upload Allure results
         if: always()

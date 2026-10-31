@@ -3,10 +3,10 @@
 # Приложение
 ## Предварительные требования
 
-- Docker 20.10+
-- Docker Compose 2.0+
 - Java 25
 - Maven 3.9+
+- Docker 20.10+
+- Docker Compose 2.0+
 
 ## Быстрый старт
 
@@ -17,20 +17,120 @@ cd accounting-service
 
 # 2. Подготовить .env файл по .env.example
 
-# 3. Поднять инфраструктуру и приложение одной командой
-docker compose up -d --build
-
-# 4. Проверить статус
-docker compose ps
-# Все сервисы должны быть в статусе "Up" или "healthy"
-
-# 5. Проверить работоспособность
-curl -v http://localhost:8080/actuator/health
-# Ожидаемый ответ: {"status":"UP"}
-
-docker compose logs accounting-service
-
+# 3. Поднять БД и Приложение
+set -a; source .env; set +a
+make up
 ```
+
+Для локальной разработки
+```shell
+# БД
+docker compose -f docker-compose.yml --env-file .env up -d accounting-dev-db
+# Приложение
+set -a; source .env; set +a
+export DB_URL="jdbc:postgresql://127.0.0.1:${DB_HOST_PORT:-5433}/${DEV_DB}"
+export SPRING_PROFILES_ACTIVE=dev
+java -jar target/accounting-service-0.0.1-SNAPSHOT.jar
+```
+
+---
+
+## Проверка минимального функционала
+
+### Получить пароль Spring Security
+
+```shell
+# После запуска приложения найти в логах:
+grep "Using generated security password" <(java -jar target/accounting-service-0.0.1-SNAPSHOT.jar 2>&1 | head -50)
+```
+
+Или из Docker-контейнера:
+
+```shell
+docker compose logs accounting-service 2>&1 | grep "Using generated security password" | awk '{print $NF}'
+```
+
+### Проверка health endpoint
+
+```shell
+curl -v http://localhost:8080/actuator/health
+```
+
+Ожидаемый ответ:
+```json
+{"status":"UP"}
+```
+
+### Проверка Swagger UI (только dev/local)
+
+```shell
+# Открыть в браузере:
+http://localhost:8080/swagger-ui.html
+
+# Или получить OpenAPI spec:
+curl -u "user:your_password" http://localhost:8080/v3/api-docs
+```
+
+### Создание счёта
+
+```shell
+PASSWORD=$(docker compose logs accounting-service 2>&1 | grep "Using generated security password" | awk '{print $NF}')
+
+curl -u "user:$PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationId": "550e8400-e29b-41d4-a716-446655440000",
+    "initialBalance": 100.00,
+    "holder": {"displayName": "Test User"}
+  }' \
+  -X POST \
+  http://localhost:8080/accounts
+```
+
+### Получение информации о счёте
+
+```shell
+ACCOUNT_ID="скопировать из ответа выше"
+
+curl -u "user:$PASSWORD" \
+  http://localhost:8080/accounts/$ACCOUNT_ID
+```
+
+### Пополнение счёта
+
+```shell
+curl -u "user:$PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationId": "550e8400-e29b-41d4-a716-446655440001",
+    "amount": 50.00
+  }' \
+  -X POST \
+  http://localhost:8080/accounts/$ACCOUNT_ID/deposit
+```
+
+### Проверка идемпотентности (повторный запрос с тем же operationId)
+
+```shell
+# Должен вернуть 409 Conflict
+curl -u "user:$PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationId": "550e8400-e29b-41d4-a716-446655440001",
+    "amount": 50.00
+  }' \
+  -X POST \
+  http://localhost:8080/accounts/$ACCOUNT_ID/deposit
+```
+
+Ожидаемый ответ:
+```json
+{
+  "code": "DUPLICATE_OPERATION",
+  "message": "Operation already processed: 550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
 
 Лог контейнера
 ```shell
@@ -39,8 +139,7 @@ docker compose -f /home/nohal/projects/accounting-service/docker-compose.yml log
 
 Пересобрать контейнер после изменения .env
 ```shell
-docker compose down -v --remove-orphans
-docker compose up -d --build
+make up
 ```
 
 
@@ -182,14 +281,24 @@ cat backup.sql | docker compose exec -T accounting-dev-db psql -U dev -d account
 ## Docker: Логи
 
 ```shell
-# Логи всех сервисов
-docker compose logs -f
+# Сохранить вывод сборки в файл
+docker compose -f docker-compose.yml --env-file .env build --no-cache accounting-service 2>&1 | tee build.log
 
-# Логи только приложения
-docker compose logs -f accounting-service
+# Все сервисы
+docker compose -f docker-compose.yml --env-file .env logs
 
-# Логи только БД
-docker compose logs -f accounting-dev-db
+# Конкретный сервис
+docker compose -f docker-compose.yml --env-file .env logs accounting-service
+docker compose -f docker-compose.yml --env-file .env logs accounting-dev-db
+
+# Следить в реальном времени
+docker compose -f docker-compose.yml --env-file .env logs -f accounting-service
+
+# Последние N строк
+docker compose -f docker-compose.yml --env-file .env logs --tail=200 accounting-service
+
+# Сохранить в файл
+docker compose -f docker-compose.yml --env-file .env logs --no-color > docker.log
 ```
 
 ## Docker: Завершение работы
@@ -295,3 +404,20 @@ docker run: permission denied
 volumes:
   - ./docker/seed.sql:/docker-entrypoint-initdb.d/init.sql:ro,Z
 ```
+
+### masquerade в зоне docker
+
+На openSUSE с firewalld Docker-трафик проходит через зону docker. Masquerade (NAT) должен быть включён для исходящего трафика контейнеров.
+```shell
+# Проверить текущее состояние
+sudo firewall-cmd --zone=docker --query-masquerade
+
+# Если выводит "no" — включить
+sudo firewall-cmd --zone=docker --add-masquerade --permanent
+sudo firewall-cmd --reload
+
+# Проверить результат
+docker run --rm maven:4.0.0-rc-7-eclipse-temurin-25 curl -s -o /dev/null -w "%{http_code}" https://repo.maven.apache.org/maven2/
+```
+
+---

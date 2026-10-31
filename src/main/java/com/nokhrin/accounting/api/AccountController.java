@@ -29,7 +29,7 @@ public class AccountController implements AccountsApi {
 
     @Override
     public ResponseEntity<AccountResponse> openAccount(@Valid @RequestBody OpenAccountRequest openAccountRequest) {
-        
+
         AccountHolder holder = new AccountHolder(
                 UUID.randomUUID(),
                 openAccountRequest.getHolder().getDisplayName()
@@ -62,11 +62,10 @@ public class AccountController implements AccountsApi {
             @PathVariable UUID targetAccountId,
             @Valid @RequestBody AmountRequest amountRequest
     ) {
-        DepositResult deposit = accountService.deposit(targetAccountId, amountRequest.getAmount());
-        DepositResponse response = new DepositResponse(
-                deposit.operationId(),
-                AccountResponseMapper.from(deposit.accountAfter())
-        );
+        DepositResult deposit = accountService.deposit(targetAccountId, amountRequest.getAmount(), amountRequest.getOperationId());
+        DepositResponse response = new DepositResponse()
+                .operationId(deposit.operationId())
+                .account(AccountResponseMapper.from(deposit.accountAfter()));
         return ResponseEntity.ok(response);
     }
 
@@ -75,11 +74,11 @@ public class AccountController implements AccountsApi {
             @PathVariable UUID sourceAccountId,
             @Valid @RequestBody AmountRequest amountRequest
     ) {
-        WithdrawalResult withdraw = accountService.withdraw(sourceAccountId, amountRequest.getAmount());
-        WithdrawalResponse response = new WithdrawalResponse(
-                withdraw.operationId(),
-                AccountResponseMapper.from(withdraw.accountAfter())
-        );
+        WithdrawalResult withdraw = accountService.withdraw(sourceAccountId, amountRequest.getAmount(), amountRequest.getOperationId());
+        WithdrawalResponse response = new WithdrawalResponse()
+                .operationId(withdraw.operationId())
+                .account(AccountResponseMapper.from(withdraw.accountAfter())
+                );
         return ResponseEntity.ok(response);
     }
 
@@ -89,12 +88,12 @@ public class AccountController implements AccountsApi {
             @PathVariable UUID targetAccountId,
             @Valid @RequestBody AmountRequest amountRequest
     ) {
-        TransferResult transfer = accountService.transfer(sourceAccountId, targetAccountId, amountRequest.getAmount());
-        TransferResponse response = new TransferResponse(
-                transfer.operationId(),
-                AccountResponseMapper.from(transfer.sourceAccountAfter()),
-                AccountResponseMapper.from(transfer.targetAccountAfter())
-        );
+        TransferResult transfer = accountService.transfer(sourceAccountId, targetAccountId, amountRequest.getAmount(), amountRequest.getOperationId());
+        TransferResponse response = new TransferResponse()
+                .operationId(transfer.operationId())
+                .sourceAccount(AccountResponseMapper.from(transfer.sourceAccountAfter()))
+                .targetAccount(AccountResponseMapper.from(transfer.targetAccountAfter())
+                );
         return ResponseEntity.ok(response);
     }
 

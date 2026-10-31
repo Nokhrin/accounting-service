@@ -24,7 +24,7 @@ include $(ENV_FILE)
 export
 endif
 
-.PHONY: env-guard venv install generate-models check-python test-python test-java test up down
+.PHONY: env-guard venv install generate-models fix-python check-python build up test-python test-java test down
 
 env-guard:
 	@test -f $(ENV_FILE) || { echo "ERROR: $(ENV_FILE) not found. Run: cp .env.example .env"; exit 1; }
@@ -57,16 +57,29 @@ check-python: generate-models
 	cd $(MODULE_DIR) && $(RUFF) format --check .
 	cd $(MODULE_DIR) && $(MYPY) .
 
-test-java: env-guard
+fix-python: generate-models
+	cd $(MODULE_DIR) && $(RUFF) check --fix .
+	cd $(MODULE_DIR) && $(RUFF) format .
+
+test-java:
 	mvn -B -ntp verify
 
-test-python: check-python
+test-python: check-python up
 	cd $(MODULE_DIR) && $(PYTHON) -m pytest -m "smoke or integration" -q
 
 test: test-java test-python
 
 up: env-guard
 	docker compose -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build accounting-service
+	@echo "Waiting for application readiness..."
+	@for i in $$(seq 1 30); do \
+		if curl -fs http://127.0.0.1:8080/actuator/health > /dev/null 2>&1; then \
+			echo "Application is ready."; \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "ERROR: Application not ready within 60s"; exit 1
 
 down:
 	docker compose -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down
